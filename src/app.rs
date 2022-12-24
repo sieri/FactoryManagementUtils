@@ -52,10 +52,6 @@ impl eframe::App for FactoryManagementUtilsApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
         let error = !self.show_errors.is_empty();
 
         if error {
@@ -122,9 +118,7 @@ impl eframe::App for FactoryManagementUtilsApp {
                 egui::warn_if_debug_build(ui);
             });
 
-            for recipe in self.recipes.iter() {
-                recipe.spawn(ctx, !error);
-            }
+            self.recipes.retain(|recipe| recipe.show(ctx, !error));
         });
     }
 
@@ -251,12 +245,12 @@ impl FactoryManagementUtilsApp {
 pub(crate) struct ShowError {
     /// The error message.
     error: String,
-
+    /// Simple description for the user
     context: String,
 }
 
 impl ShowError {
-    /// Create an error message to be shown to the user.
+    /// Create an default error message to be shown to the user.
     ///
     ///
     pub(crate) fn new(err: String) -> Self {
@@ -266,6 +260,9 @@ impl ShowError {
         }
     }
 
+    /// Create an error message to be shown to the user. customize the context
+    ///
+    ///
     #[allow(dead_code)]
     pub(crate) fn new_custom_context(err: String, context: String) -> Self {
         Self {

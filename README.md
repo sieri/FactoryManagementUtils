@@ -7,13 +7,11 @@ A generic flowchart generator for factor management games like modded Minecraft,
 
 Use [eframe](https://github.com/emilk/egui/tree/master/crates/eframe) framework [egui](https://github.com/emilk/egui/).
 
-You can compile your app natively or for the web, and share it using Github Pages.
+You can compile your app natively or for the web, and share it using GitHub Pages.
 
 ### Learning about egui
 
-`src/app.rs` contains a simple example app. This is just to give some inspiration - most of it can be removed if you like.
-
-The official egui docs are at <https://docs.rs/egui>. If you prefer watching a video introduction, check out <https://www.youtube.com/watch?v=NtUkr_z7l84>. For inspiration, check out the [the egui web demo](https://emilk.github.io/egui/index.html) and follow the links in it to its source code.
+The official egui docs are at <https://docs.rs/egui>. If you prefer watching a video introduction, check out <https://www.youtube.com/watch?v=NtUkr_z7l84>. For inspiration, check out [the egui web demo](https://emilk.github.io/egui/index.html) and follow the links in it to its source code.
 
 ### Testing locally
 
@@ -46,7 +44,7 @@ We use [Trunk](https://trunkrs.dev/) to build for web target.
 2. It will generate a `dist` directory as a "static html" website
 3. Upload the `dist` directory to any of the numerous free hosting websites including [GitHub Pages](https://docs.github.com/en/free-pro-team@latest/github/working-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
 4. we already provide a workflow that auto-deploys our app to GitHub pages if you enable it.
-> To enable Github Pages, you need to go to Repository -> Settings -> Pages -> Source -> set to `gh-pages` branch and `/` (root).
+> To enable GitHub Pages, you need to go to Repository -> Settings -> Pages -> Source -> set to `gh-pages` branch and `/` (root).
 >
 > If `gh-pages` is not available in `Source`, just create and push a branch called `gh-pages` and it should be available.
 
