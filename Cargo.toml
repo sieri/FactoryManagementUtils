@@ -1,7 +1,7 @@
 [package]
-name = "eframe_template"
+name = "factory_management_utils"
 version = "0.1.0"
-authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
+authors = ["Sylvana Ieri <sieri@windowslive.com>"]
 edition = "2021"
 rust-version = "1.65"
 
