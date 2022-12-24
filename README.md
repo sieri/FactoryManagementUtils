@@ -1,4 +1,4 @@
-# eframe template
+# Factory Management Utils
 
 [![dependency status](https://deps.rs/repo/github/sieri/FactoryManagementUtils/status.svg)](https://deps.rs/repo/github/sieri/FactoryManagementUtils)
 [![Build Status](https://github.com/sieri/FactoryManagementUtils/workflows/CI/badge.svg)](https://github.com/sieri/FactoryManagementUtils/actions?workflow=CI)

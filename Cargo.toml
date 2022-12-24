@@ -15,8 +15,11 @@ eframe = { version = "0.20.0", default-features = false, features = [
     "persistence",   # Enable restoring app state when restarting the app.
 ] }
 
-# You only need serde if you want app persistence:
+# serializazion for app persistancy:
 serde = { version = "1", features = ["derive"] }
+
+# clipboard management
+copypasta = "0.8.1"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

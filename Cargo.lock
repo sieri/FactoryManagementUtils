@@ -104,7 +104,7 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6041616acea41d67c4a984709ddab1587fd0b10efe5cc563fee954d2f011854"
 dependencies = [
- "clipboard-win",
+ "clipboard-win 4.4.2",
  "log",
  "objc",
  "objc-foundation",
@@ -263,6 +263,16 @@ dependencies = [
 
 [[package]]
 name = "clipboard-win"
+version = "3.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fdf5e01086b6be750428ba4a40619f847eb2e95756eee84b18e06e5f0b50342"
+dependencies = [
+ "lazy-bytes-cast",
+ "winapi",
+]
+
+[[package]]
+name = "clipboard-win"
 version = "4.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4ab1b92798304eedc095b53942963240037c0516452cb11aeba709d420b2219"
@@ -330,6 +340,20 @@ checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
 dependencies = [
  "cfg-if",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "copypasta"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7216b5c1e9ad3867252505995b02d01c6fa7e6db0d8abd42634352ef377777e"
+dependencies = [
+ "clipboard-win 3.1.1",
+ "objc",
+ "objc-foundation",
+ "objc_id",
+ "smithay-clipboard",
+ "x11-clipboard",
 ]
 
 [[package]]
@@ -704,6 +728,7 @@ name = "factory_management_utils"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
+ "copypasta",
  "eframe",
  "egui",
  "serde",
@@ -969,6 +994,12 @@ dependencies = [
  "arrayvec 0.7.2",
  "serde",
 ]
+
+[[package]]
+name = "lazy-bytes-cast"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10257499f089cd156ad82d0a9cd57d9501fa2c989068992a97eb3c27836f206b"
 
 [[package]]
 name = "lazy_static"
@@ -1354,6 +1385,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ea3d908b0e36316caf9e9e2c4625cdde190a7e6f440d794667ed17a1855e725"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8533f14c8382aaad0d592c812ac3b826162128b65662331e1127b45c3d18536b"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -2186,6 +2226,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "x11-clipboard"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a7468a5768fea473e6c8c0d4b60d6d7001a64acceaac267207ca0281e1337e8"
+dependencies = [
+ "xcb",
+]
+
+[[package]]
 name = "x11-dl"
 version = "2.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2216,6 +2265,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56b245751c0ac9db0e006dc812031482784e434630205a93c73cfefcaabeac67"
 dependencies = [
  "nix 0.24.3",
+]
+
+[[package]]
+name = "xcb"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0faeb4d7e2d54fff4a0584f61297e86b106914af2029778de7b427f72564d6c5"
+dependencies = [
+ "bitflags",
+ "libc",
+ "quick-xml",
 ]
 
 [[package]]
