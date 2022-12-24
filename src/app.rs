@@ -1,4 +1,3 @@
-use egui::accesskit::HasPopup::True;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
