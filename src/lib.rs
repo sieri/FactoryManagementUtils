@@ -2,4 +2,7 @@
 
 mod app;
 mod recipe_window;
+pub(crate) mod resources;
+pub(crate) mod utils;
+
 pub use app::FactoryManagementUtilsApp;

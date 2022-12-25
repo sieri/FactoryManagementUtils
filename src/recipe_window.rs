@@ -1,3 +1,5 @@
+use crate::resources::AnyManageResourceFlow;
+use eframe::emath::Align;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub trait RecipeWindowGUI {
@@ -17,8 +19,23 @@ pub trait RecipeWindowGUI {
 #[serde(default)]
 /// Descriptor for a Basic Recipe window, the recipe is directly calculated
 pub struct BasicRecipeWindowDescriptor {
+    ///Title of the recipe
     title: String,
+
+    ///unique id of the recipe
     id: egui::Id,
+
+    ///list of inputs
+    #[serde(skip)] //TODO: Serialize this probably manually
+    inputs: Vec<Box<dyn AnyManageResourceFlow>>,
+
+    ///list of outputs
+    #[serde(skip)] //TODO: Serialize this probably manually
+    outputs: Vec<Box<dyn AnyManageResourceFlow>>,
+
+    ///power used per cycle
+    #[serde(skip)] //TODO: Serialize this probably manually
+    power: Option<Box<dyn AnyManageResourceFlow>>,
 }
 
 impl Default for BasicRecipeWindowDescriptor {
@@ -34,7 +51,14 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
             .id(self.id)
             .enabled(enabled)
             .open(&mut open)
-            .show(ctx, |ui| ui.label("Default recipe"));
+            .show(ctx, |ui| {
+                ui.with_layout(egui::Layout::bottom_up(Align::Min), |ui| {
+                    ui.with_layout(egui::Layout::left_to_right(Align::Min), |ui| {
+                        self.show_inputs(ui, enabled);
+                        self.show_outputs(ui, enabled);
+                    });
+                })
+            });
 
         open
     }
@@ -54,6 +78,35 @@ impl BasicRecipeWindowDescriptor {
             .unwrap()
             .as_nanos();
         let id = egui::Id::new(title.to_owned() + &*format!("{}", timestamp));
-        Self { title, id }
+        Self {
+            title,
+            id,
+            inputs: vec![],
+            outputs: vec![],
+            power: None,
+        }
+    }
+
+    fn show_inputs(&self, ui: &mut egui::Ui, enabled: bool) {
+        let _ = ui.label("inputs");
+
+        if ui
+            .add_enabled(
+                enabled,
+                egui::Button::new(egui::RichText::new("➕").color(egui::Rgba::GREEN)),
+            )
+            .clicked()
+        {}
+    }
+    fn show_outputs(&self, ui: &mut egui::Ui, enabled: bool) {
+        let _ = ui.label("outputs");
+
+        if ui
+            .add_enabled(
+                enabled,
+                egui::Button::new(egui::RichText::new("➕").color(egui::Rgba::GREEN)),
+            )
+            .clicked()
+        {}
     }
 }
