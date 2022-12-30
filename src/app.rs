@@ -118,7 +118,7 @@ impl eframe::App for FactoryManagementUtilsApp {
                 egui::warn_if_debug_build(ui);
             });
 
-            self.recipes.retain(|recipe| recipe.show(ctx, !error));
+            self.recipes.retain_mut(|recipe| recipe.show(ctx, !error));
         });
     }
 

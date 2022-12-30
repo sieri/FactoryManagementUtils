@@ -11,7 +11,7 @@ const MINUTES_TO_HOURS: usize = 60;
 /// * LITER volume measurement
 /// * KG weight measurement
 #[allow(dead_code)]
-#[derive(PartialEq, PartialOrd, Copy, Clone)]
+#[derive(PartialEq, PartialOrd, Copy, Clone, serde::Deserialize, serde::Serialize)]
 pub(crate) enum Unit {
     Piece,
     Liter,
@@ -19,34 +19,34 @@ pub(crate) enum Unit {
 }
 ///rate of a flow
 #[allow(dead_code)]
-#[derive(PartialEq, PartialOrd, Copy, Clone)]
-pub(crate) enum Rate {
-    PerTick,
-    PerSecond,
-    PerMinute,
-    PerHour,
+#[derive(PartialEq, PartialOrd, Copy, Clone, serde::Deserialize, serde::Serialize)]
+pub(crate) enum RatePer {
+    Tick,
+    Second,
+    Minute,
+    Hour,
 }
 
 ///A type of a resource
 #[derive(PartialEq, PartialOrd, Clone)]
 pub(crate) struct ResourceDefinition {
     ///The name of the resource, should be unique
-    name: String,
+    pub name: String,
 
     ///the unit of that resource
-    unit: Unit,
+    pub unit: Unit,
 }
 
 ///A flow of resource
 #[derive(PartialEq, PartialOrd, Clone)]
 pub(crate) struct ResourceFlow<T: Number> {
-    resource: ResourceDefinition,
-    amount: T,
-    rate: Rate,
+    pub resource: ResourceDefinition,
+    pub amount: T,
+    pub rate: RatePer,
 }
 
 impl<T: Number> ResourceFlow<T> {
-    pub fn new(resource: &ResourceDefinition, amount: T, rate: Rate) -> ResourceFlow<T> {
+    pub fn new(resource: &ResourceDefinition, amount: T, rate: RatePer) -> ResourceFlow<T> {
         Self {
             resource: resource.clone(),
             amount,
@@ -54,7 +54,7 @@ impl<T: Number> ResourceFlow<T> {
         }
     }
 
-    pub fn empty(resource: &ResourceDefinition, rate: Rate) -> ResourceFlow<T> {
+    pub fn empty(resource: &ResourceDefinition, rate: RatePer) -> ResourceFlow<T> {
         Self::new(resource, T::zero(), rate)
     }
 
@@ -66,31 +66,31 @@ impl<T: Number> ResourceFlow<T> {
     /// * `rate`: the asked rate
     ///
     /// returns: Result<T, FlowError>
-    pub fn convert_amount(&self, rate: Rate) -> Result<T, FlowError> {
+    pub fn convert_amount(&self, rate: RatePer) -> Result<T, FlowError> {
         match self.rate {
-            Rate::PerTick => match rate {
-                Rate::PerTick => Ok(self.amount),
+            RatePer::Tick => match rate {
+                RatePer::Tick => Ok(self.amount),
                 _ => Err(FlowError::new(FlowErrorType::RateTooLowConversion)),
             },
-            Rate::PerSecond => match rate {
-                Rate::PerTick => Ok(self.amount * TICKS_TO_SECONDS.into()),
-                Rate::PerSecond => Ok(self.amount),
+            RatePer::Second => match rate {
+                RatePer::Tick => Ok(self.amount * TICKS_TO_SECONDS.into()),
+                RatePer::Second => Ok(self.amount),
                 _ => Err(FlowError::new(FlowErrorType::RateTooLowConversion)),
             },
-            Rate::PerMinute => match rate {
-                Rate::PerTick => Ok(self.amount * (TICKS_TO_SECONDS * SECONDS_TO_MINUTES).into()),
-                Rate::PerSecond => Ok(self.amount * SECONDS_TO_MINUTES.into()),
-                Rate::PerMinute => Ok(self.amount),
+            RatePer::Minute => match rate {
+                RatePer::Tick => Ok(self.amount * (TICKS_TO_SECONDS * SECONDS_TO_MINUTES).into()),
+                RatePer::Second => Ok(self.amount * SECONDS_TO_MINUTES.into()),
+                RatePer::Minute => Ok(self.amount),
                 _ => Err(FlowError::new(FlowErrorType::RateTooLowConversion)),
             },
-            Rate::PerHour => match rate {
-                Rate::PerTick => {
+            RatePer::Hour => match rate {
+                RatePer::Tick => {
                     Ok(self.amount
                         * (TICKS_TO_SECONDS * SECONDS_TO_MINUTES * MINUTES_TO_HOURS).into())
                 }
-                Rate::PerSecond => Ok(self.amount * (SECONDS_TO_MINUTES * MINUTES_TO_HOURS).into()),
-                Rate::PerMinute => Ok(self.amount * MINUTES_TO_HOURS.into()),
-                Rate::PerHour => Ok(self.amount),
+                RatePer::Second => Ok(self.amount * (SECONDS_TO_MINUTES * MINUTES_TO_HOURS).into()),
+                RatePer::Minute => Ok(self.amount * MINUTES_TO_HOURS.into()),
+                RatePer::Hour => Ok(self.amount),
             },
         }
     }
@@ -103,7 +103,7 @@ impl<T: Number> ResourceFlow<T> {
     /// * `rate`:
     ///
     /// returns: Result<_, FlowError>
-    pub fn convert(&mut self, rate: Rate) -> Result<(), FlowError> {
+    pub fn convert(&mut self, rate: RatePer) -> Result<(), FlowError> {
         match self.convert_amount(rate) {
             Ok(amount) => {
                 self.rate = rate;
@@ -176,10 +176,16 @@ pub(crate) trait ManageResourceFlow<T: Number> {
     /// return the total flow out
     fn total_out(&self) -> ResourceFlow<T>;
 
+    ///indicate the flow is enough
     fn is_enough(&self) -> bool {
         self.total_out() < self.total_in()
     }
+
+    fn resource(&self) -> ResourceDefinition;
 }
+
+///accessible trait for any structure that manage a resource flow
+pub trait AnyManageResourceFlow {}
 
 ///an input resource for a recipe
 pub(crate) struct RecipeInputResource<T: Number> {
@@ -205,7 +211,25 @@ pub(crate) struct RecipeOutputResource<T: Number> {
     created: ResourceFlow<T>,
 }
 
-pub trait AnyManageResourceFlow {}
+impl<T: Number> RecipeInputResource<T> {
+    pub(crate) fn new(resource: ResourceDefinition, needed: ResourceFlow<T>) -> Self {
+        Self {
+            resource,
+            inputs: vec![],
+            needed,
+        }
+    }
+}
+
+impl<T: Number> RecipeOutputResource<T> {
+    pub(crate) fn new(resource: ResourceDefinition, created: ResourceFlow<T>) -> Self {
+        Self {
+            resource,
+            outputs: vec![],
+            created,
+        }
+    }
+}
 
 impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
     fn add_in_flow(&mut self, flow: ResourceFlow<T>) -> bool {
@@ -218,7 +242,7 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
     }
 
     fn add_out_flow(&mut self, _flow: ResourceFlow<T>) -> bool {
-        return false;
+        false
     }
 
     fn total_in(&self) -> ResourceFlow<T> {
@@ -234,6 +258,10 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
 
     fn total_out(&self) -> ResourceFlow<T> {
         self.needed.clone()
+    }
+
+    fn resource(&self) -> ResourceDefinition {
+        self.resource.clone()
     }
 }
 
@@ -265,9 +293,15 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
 
         flow
     }
+
+    fn resource(&self) -> ResourceDefinition {
+        self.resource.clone()
+    }
 }
 
 impl<T> AnyManageResourceFlow for dyn ManageResourceFlow<T> {}
+impl<T: Number> AnyManageResourceFlow for RecipeInputResource<T> {}
+impl<T: Number> AnyManageResourceFlow for RecipeOutputResource<T> {}
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum FlowErrorType {
