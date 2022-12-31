@@ -1,9 +1,12 @@
+use crate::app::CommonManager;
 use crate::resources::{
     ManageResourceFlow, RatePer, RecipeInputResource, RecipeOutputResource, ResourceDefinition,
     ResourceFlow, Unit,
 };
 use crate::utils::{Io, Number};
-use egui::Widget;
+use eframe::emath::Rect;
+use egui::accesskit::AriaCurrent::False;
+use egui::{Sense, Widget};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub trait RecipeWindowGUI {
@@ -16,7 +19,7 @@ pub trait RecipeWindowGUI {
     ///
     /// returns: `bool` flag if the window is still alive
     ///
-    fn show(&mut self, ctx: &egui::Context, enabled: bool) -> bool;
+    fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool;
 
     fn gen_id(name: String) -> egui::Id {
         let timestamp = SystemTime::now()
@@ -51,6 +54,9 @@ pub struct BasicRecipeWindowDescriptor {
 
     ///Resource adding windows
     resource_adding_windows: Vec<ResourceAddingWindow<usize>>,
+
+    ///Outgoing resource flows
+    out_flow: Vec<ArrowFlow>,
 }
 
 impl Default for BasicRecipeWindowDescriptor {
@@ -60,23 +66,37 @@ impl Default for BasicRecipeWindowDescriptor {
 }
 
 impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
-    fn show(&mut self, ctx: &egui::Context, enabled: bool) -> bool {
+    fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
         let mut open = true;
-        egui::Window::new(self.title.to_owned())
+        let response = egui::Window::new(self.title.to_owned())
             .id(self.id)
             .enabled(enabled)
             .open(&mut open)
             .show(ctx, |ui| {
-                ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
-                        self.show_inputs(ui, enabled);
-                        self.show_outputs(ui, enabled);
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        self.show_inputs(commons, ui, enabled);
+                        ui.separator();
+                        self.show_outputs(commons, ui, enabled);
                     });
+                    ui.separator();
+                    self.show_power(ui, enabled);
                 })
             });
-
+        let inner_response = response.unwrap();
+        if open {
+            commons
+                .window_coordinates
+                .insert(self.id, inner_response.response.rect);
+            let resp = inner_response.response.interact(Sense::click());
+            if resp.clicked() && commons.arrow_active {
+                commons.clicked_place_arrow_id = Some(self.id);
+            }
+        } else {
+            commons.window_coordinates.remove(&self.id);
+        }
         self.resource_adding_windows.retain_mut(|window| {
-            let open = window.show(ctx, enabled);
+            let open = window.show(commons, ctx, enabled);
             if window.okay {
                 //add the response
                 let resource = window.get_resource();
@@ -92,6 +112,9 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
             open && !window.okay
         });
 
+        self.out_flow
+            .retain_mut(|arrow| arrow.show(commons, ctx, enabled));
+
         open
     }
 }
@@ -106,20 +129,27 @@ impl BasicRecipeWindowDescriptor {
     /// returns: BasicRecipeWindowDescriptor
     pub fn new(title: String) -> Self {
         let id = BasicRecipeWindowDescriptor::gen_id(title.clone());
+        let resource = ResourceDefinition {
+            name: title.clone(),
+            unit: Unit::Piece,
+        };
+        let flow = ResourceFlow::new(&resource, 1, RatePer::Second);
+        let output = Box::new(RecipeOutputResource::new(resource, flow));
         Self {
             title,
             id,
             inputs: vec![],
-            outputs: vec![],
+            outputs: vec![output],
             power: None,
             resource_adding_windows: vec![],
+            out_flow: vec![],
         }
     }
 
-    fn show_inputs(&mut self, ui: &mut egui::Ui, enabled: bool) {
+    fn show_inputs(&mut self, commons: &mut CommonManager, ui: &mut egui::Ui, enabled: bool) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                let _ = ui.label("inputs");
+                let _ = ui.label("Inputs");
 
                 if ui
                     .add_enabled(
@@ -131,16 +161,17 @@ impl BasicRecipeWindowDescriptor {
                     self.open_resource_adding_window(Io::Input);
                 }
             });
-            for flow in self.inputs.iter() {
-                self.show_flow(flow, Io::Input, ui, enabled);
+
+            for i in 0..self.inputs.len() {
+                self.show_flow(commons, i, Io::Input, ui, enabled);
             }
         });
     }
 
-    fn show_outputs(&mut self, ui: &mut egui::Ui, enabled: bool) {
+    fn show_outputs(&mut self, commons: &mut CommonManager, ui: &mut egui::Ui, enabled: bool) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                let _ = ui.label("outputs");
+                let _ = ui.label("Outputs");
                 if ui
                     .add_enabled(
                         enabled,
@@ -151,27 +182,65 @@ impl BasicRecipeWindowDescriptor {
                     self.open_resource_adding_window(Io::Output);
                 }
             });
-            for flow in self.outputs.iter() {
-                self.show_flow(flow, Io::Output, ui, enabled);
+            for i in 0..self.outputs.len() {
+                self.show_flow(commons, i, Io::Output, ui, enabled);
             }
         });
     }
 
     #[allow(clippy::borrowed_box)]
     fn show_flow(
-        &self,
-        resource_flow: &Box<dyn ManageResourceFlow<usize>>,
+        &mut self,
+        commons: &mut CommonManager,
+        resource_flow_index: usize,
         dir: Io,
         ui: &mut egui::Ui,
         _enabled: bool,
     ) {
         //get variables
+        let resource_flow = match dir {
+            Io::Input => &self.inputs[resource_flow_index],
+            Io::Output => &self.outputs[resource_flow_index],
+        };
         let resource = resource_flow.resource();
         let mut name = resource.name;
+        let name_len = name.len();
         let resource_flow = match dir {
             Io::Input => resource_flow.total_out(),
             Io::Output => resource_flow.total_in(),
         };
+        let mut amount = resource_flow.amount;
+        ui.horizontal(|ui| {
+            egui::TextEdit::singleline(&mut name)
+                .desired_width((name_len * 7) as f32)
+                .show(ui);
+            ui.label(":");
+            egui::DragValue::new(&mut amount).ui(ui);
+            ui.label("per cycle");
+
+            match dir {
+                Io::Input => {}
+                Io::Output => {
+                    if ui.button("⭕").clicked() {
+                        commons.clicked_start_arrow_id = Some((self.id, ui.layer_id()));
+                    }
+                }
+            }
+        });
+    }
+
+    fn show_power(&mut self, ui: &mut egui::Ui, _enabled: bool) {
+        let power = match &self.power {
+            None => {
+                if ui.button("Add Power").clicked() {}
+                return;
+            }
+            Some(a) => a,
+        };
+        //get variables
+        let resource = power.resource();
+        let mut name = resource.name;
+        let resource_flow = power.total_out();
         let mut amount = resource_flow.amount;
         ui.horizontal(|ui| {
             ui.text_edit_singleline(&mut name);
@@ -247,7 +316,7 @@ impl<T: Number> ResourceAddingWindow<T> {
 }
 
 impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
-    fn show(&mut self, ctx: &egui::Context, enabled: bool) -> bool {
+    fn show(&mut self, _commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
         let mut open = true;
         egui::Window::new(self.title.to_owned())
             .id(self.id)
@@ -269,7 +338,7 @@ impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
                         //TODO Implement time based entering
                         //egui::DragValue::new(&mut self.amount_per_time).ui(ui);
                     });
-                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
                         let button = ui.button(match self.dir {
                             Io::Input => "Add input",
                             Io::Output => "Add output",
@@ -282,5 +351,83 @@ impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
             });
 
         open
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Copy, Clone)]
+enum ArrowUsageState {
+    Active,
+    Anchored,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Copy, Clone)]
+pub struct ArrowFlow {
+    id: egui::Id,
+
+    state: ArrowUsageState,
+
+    start_flow: egui::Id,
+    end_flow: Option<egui::Id>,
+
+    layer_id: egui::LayerId,
+}
+
+impl RecipeWindowGUI for ArrowFlow {
+    fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
+        let painter = ctx.layer_painter(self.layer_id);
+
+        let start_rect = commons.window_coordinates.get(&self.start_flow);
+        let start_point = match start_rect {
+            None => return false,
+            Some(r) => r.max,
+        };
+
+        let end_point = match self.state {
+            ArrowUsageState::Active => ctx
+                .pointer_hover_pos()
+                .unwrap_or(egui::Pos2::new(10.0, 10.0)),
+            ArrowUsageState::Anchored => {
+                let end_rect = commons
+                    .window_coordinates
+                    .get(self.end_flow.as_ref().unwrap());
+                match end_rect {
+                    None => return false,
+                    Some(r) => r.min,
+                }
+            }
+        };
+
+        let color = match enabled {
+            true => egui::Color32::RED,
+            false => egui::Color32::GRAY,
+        };
+
+        match self.state {
+            ArrowUsageState::Active => {
+                commons.arrow_active = true;
+            }
+            ArrowUsageState::Anchored => {}
+        }
+
+        painter.line_segment([start_point, end_point], egui::Stroke::new(5.0, color));
+
+        true
+    }
+}
+
+impl ArrowFlow {
+    pub(crate) fn new(start_flow: egui::Id, layer_id: egui::LayerId) -> Self {
+        ArrowFlow {
+            id: Self::gen_id(format!("Flow{:?}", start_flow)),
+            state: ArrowUsageState::Active,
+            start_flow,
+            end_flow: None,
+            layer_id,
+        }
+    }
+
+    pub(crate) fn put_end(&mut self, end_flow: egui::Id) {
+        self.end_flow = Some(end_flow);
+        self.state = ArrowUsageState::Anchored;
     }
 }

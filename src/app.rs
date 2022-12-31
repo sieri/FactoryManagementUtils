@@ -1,5 +1,6 @@
-use crate::recipe_window::{BasicRecipeWindowDescriptor, RecipeWindowGUI};
+use crate::recipe_window::{ArrowFlow, BasicRecipeWindowDescriptor, RecipeWindowGUI};
 use copypasta::{ClipboardContext, ClipboardProvider};
+use egui::Widget;
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
@@ -7,10 +8,10 @@ use std::time::{Duration, Instant};
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct FactoryManagementUtilsApp {
-    // Example stuff:
     label: String,
     recipes: Vec<BasicRecipeWindowDescriptor>,
-
+    #[serde(skip)]
+    commons: CommonManager,
     // List of error popups to keep
     #[serde(skip)]
     show_errors: VecDeque<ShowError>,
@@ -18,6 +19,18 @@ pub struct FactoryManagementUtilsApp {
     /// List of tooltips that can be shown
     #[serde(skip)]
     show_tooltips: HashMap<egui::Id, (String, Instant)>,
+
+    pub active_arrow: Option<ArrowFlow>,
+    pub arrows: Vec<ArrowFlow>,
+}
+
+pub struct CommonManager {
+    pub window_coordinates: HashMap<egui::Id, egui::Rect>,
+
+    pub arrow_active: bool,
+
+    pub clicked_start_arrow_id: Option<(egui::Id, egui::LayerId)>,
+    pub clicked_place_arrow_id: Option<egui::Id>,
 }
 
 impl Default for FactoryManagementUtilsApp {
@@ -26,8 +39,16 @@ impl Default for FactoryManagementUtilsApp {
             // Example stuff:
             label: "Hello World!".to_owned(),
             recipes: vec![],
+            commons: CommonManager {
+                window_coordinates: Default::default(),
+                arrow_active: false,
+                clicked_start_arrow_id: None,
+                clicked_place_arrow_id: None,
+            },
             show_errors: Default::default(),
             show_tooltips: Default::default(),
+            active_arrow: None,
+            arrows: vec![],
         }
     }
 }
@@ -94,6 +115,27 @@ impl eframe::App for FactoryManagementUtilsApp {
                 }
             }
 
+            if cfg!(debug_assertions) {
+                ui.separator();
+                ui.label("DEBUG");
+                let mut a = self.commons.arrow_active;
+                ui.checkbox(&mut a, "Arrow active");
+                let mut start_some = self.commons.clicked_start_arrow_id.is_some();
+                let mut place_some = self.commons.clicked_place_arrow_id.is_some();
+                ui.checkbox(&mut start_some, "clicked start is some");
+                ui.checkbox(&mut place_some, "clicked place is some");
+                let mut arrow_count = self.arrows.len();
+                ui.horizontal(|ui| {
+                    ui.label("Arrow");
+                    egui::DragValue::new(&mut arrow_count).ui(ui);
+                });
+                let mut recipe_count = self.recipes.len();
+                ui.horizontal(|ui| {
+                    ui.label("Recipe");
+                    egui::DragValue::new(&mut recipe_count).ui(ui);
+                });
+            }
+
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
@@ -118,8 +160,41 @@ impl eframe::App for FactoryManagementUtilsApp {
                 egui::warn_if_debug_build(ui);
             });
 
-            self.recipes.retain_mut(|recipe| recipe.show(ctx, !error));
+            self.recipes
+                .retain_mut(|recipe| recipe.show(&mut self.commons, ctx, !error));
         });
+
+        self.arrows
+            .retain_mut(|arrow| arrow.show(&mut self.commons, ctx, !error));
+        if self.active_arrow.is_some() {
+            let active = self
+                .active_arrow
+                .as_mut()
+                .unwrap()
+                .show(&mut self.commons, ctx, !error);
+
+            if active {
+                if self.commons.clicked_place_arrow_id.is_some() {
+                    self.active_arrow
+                        .as_mut()
+                        .unwrap()
+                        .put_end(self.commons.clicked_place_arrow_id.unwrap());
+                    self.arrows.push(self.active_arrow.clone().unwrap());
+                    self.active_arrow = None;
+                    self.commons.arrow_active = false;
+                    self.commons.clicked_place_arrow_id = None;
+                }
+            } else {
+                self.active_arrow = None;
+                self.commons.arrow_active = false;
+            }
+        } else {
+            if self.commons.clicked_start_arrow_id.is_some() {
+                let (id, layer) = self.commons.clicked_start_arrow_id.unwrap();
+                self.active_arrow = Some(ArrowFlow::new(id, layer));
+                self.commons.clicked_start_arrow_id = None;
+            }
+        }
     }
 
     /// Called by the frame work to save state before shutdown.
