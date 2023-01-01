@@ -12,7 +12,7 @@ const MINUTES_TO_HOURS: usize = 60;
 /// * KG weight measurement
 #[allow(dead_code)]
 #[derive(PartialEq, PartialOrd, Copy, Clone, serde::Deserialize, serde::Serialize)]
-pub(crate) enum Unit {
+pub enum Unit {
     Piece,
     Liter,
     Kg,
@@ -20,7 +20,7 @@ pub(crate) enum Unit {
 ///rate of a flow
 #[allow(dead_code)]
 #[derive(PartialEq, PartialOrd, Copy, Clone, serde::Deserialize, serde::Serialize)]
-pub(crate) enum RatePer {
+pub enum RatePer {
     Tick,
     Second,
     Minute,
@@ -29,7 +29,7 @@ pub(crate) enum RatePer {
 
 ///A type of a resource
 #[derive(PartialEq, PartialOrd, Clone, serde::Deserialize, serde::Serialize)]
-pub(crate) struct ResourceDefinition {
+pub struct ResourceDefinition {
     ///The name of the resource, should be unique
     pub name: String,
 
@@ -307,6 +307,7 @@ pub(crate) enum ManageFlow<T: Number> {
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum FlowErrorType {
     RateTooLowConversion,
+    WrongResourceType,
 }
 
 pub(crate) struct FlowError {
@@ -321,6 +322,7 @@ impl FlowError {
     pub(crate) fn str(&self) -> &str {
         match self.error_type {
             FlowErrorType::RateTooLowConversion => "Rate type too low for rate conversion",
+            FlowErrorType::WrongResourceType => "Resource Flow of wrong type",
         }
     }
 }

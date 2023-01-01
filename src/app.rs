@@ -1,4 +1,5 @@
 use crate::recipe_window::{ArrowFlow, BasicRecipeWindowDescriptor, RecipeWindowGUI};
+use crate::resources::ResourceDefinition;
 use copypasta::{ClipboardContext, ClipboardProvider};
 use egui::Widget;
 use std::collections::{HashMap, VecDeque};
@@ -49,8 +50,8 @@ pub struct CommonManager {
 
     pub arrow_active: bool,
 
-    pub clicked_start_arrow_info: Option<(egui::Id, egui::LayerId, usize)>,
-    pub clicked_place_arrow_info: Option<(egui::Id, usize)>,
+    pub clicked_start_arrow_info: Option<(ResourceDefinition, egui::Id, egui::LayerId, usize)>,
+    pub clicked_place_arrow_info: Option<(ResourceDefinition, egui::Id, usize)>,
 }
 
 impl Default for FactoryManagementUtilsApp {
@@ -93,6 +94,8 @@ impl eframe::App for FactoryManagementUtilsApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.calculate();
+
         let error = !self.show_errors.is_empty();
 
         if error {
@@ -195,9 +198,22 @@ impl eframe::App for FactoryManagementUtilsApp {
 
             if active {
                 if self.commons.clicked_place_arrow_info.is_some() {
-                    let (id, flow_index) = self.commons.clicked_place_arrow_info.unwrap();
-                    self.active_arrow.as_mut().unwrap().put_end(id, flow_index);
-                    self.arrows.push(self.active_arrow.unwrap());
+                    let (resource, id, flow_index) =
+                        self.commons.clicked_place_arrow_info.as_ref().unwrap();
+                    let err = self.active_arrow.as_mut().unwrap().put_end(
+                        resource.clone(),
+                        *id,
+                        *flow_index,
+                    );
+
+                    match err {
+                        Ok(_) => {
+                            self.arrows
+                                .push(self.active_arrow.as_ref().unwrap().clone());
+                        }
+                        Err(e) => self.add_error(ShowError::new(String::from(e.str()))),
+                    };
+
                     self.active_arrow = None;
                     self.commons.arrow_active = false;
                     self.commons.clicked_place_arrow_info = None;
@@ -207,8 +223,14 @@ impl eframe::App for FactoryManagementUtilsApp {
                 self.commons.arrow_active = false;
             }
         } else if self.commons.clicked_start_arrow_info.is_some() {
-            let (id, layer, flow_index) = self.commons.clicked_start_arrow_info.unwrap();
-            self.active_arrow = Some(ArrowFlow::new(id, layer, flow_index));
+            let (resource, id, layer, flow_index) =
+                self.commons.clicked_start_arrow_info.as_ref().unwrap();
+            self.active_arrow = Some(ArrowFlow::new(
+                resource.clone(),
+                id.clone(),
+                layer.clone(),
+                flow_index.clone(),
+            ));
             self.commons.clicked_start_arrow_info = None;
         }
     }
@@ -329,6 +351,9 @@ impl FactoryManagementUtilsApp {
             }
         }
     }
+
+    ///Calculate the current recipe
+    fn calculate(&mut self) {}
 }
 
 /// Holds state for an error message to show to the user, and provides a feedback mechanism for the

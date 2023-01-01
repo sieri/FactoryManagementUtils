@@ -1,8 +1,8 @@
 use crate::app::{CommonManager, CoordinatesInfo};
 use crate::resources::ManageFlow::{RecipeInput, RecipeOutput};
 use crate::resources::{
-    ManageFlow, ManageResourceFlow, RatePer, RecipeInputResource, RecipeOutputResource,
-    ResourceDefinition, ResourceFlow, Unit,
+    FlowError, FlowErrorType, ManageFlow, ManageResourceFlow, RatePer, RecipeInputResource,
+    RecipeOutputResource, ResourceDefinition, ResourceFlow, Unit,
 };
 use crate::utils::{Io, Number};
 use egui::Widget;
@@ -209,7 +209,7 @@ impl BasicRecipeWindowDescriptor {
             },
         };
         let resource = resource_flow.resource();
-        let mut name = resource.name;
+        let mut name = resource.clone().name;
         let name_len = name.len();
         let resource_flow = match dir {
             Io::Input => resource_flow.total_out(),
@@ -224,7 +224,8 @@ impl BasicRecipeWindowDescriptor {
                     self.window_coordinate.in_flow.push(btn_resp.rect);
 
                     if btn_resp.clicked() && commons.arrow_active {
-                        commons.clicked_place_arrow_info = Some((self.id, resource_flow_index));
+                        commons.clicked_place_arrow_info =
+                            Some((resource.clone(), self.id, resource_flow_index));
                     }
                 }
                 Io::Output => {}
@@ -245,8 +246,12 @@ impl BasicRecipeWindowDescriptor {
                     self.window_coordinate.out_flow.push(btn_resp.rect);
 
                     if btn_resp.clicked() {
-                        commons.clicked_start_arrow_info =
-                            Some((self.id, ui.layer_id(), resource_flow_index));
+                        commons.clicked_start_arrow_info = Some((
+                            resource.clone(),
+                            self.id,
+                            ui.layer_id(),
+                            resource_flow_index,
+                        ));
                     }
                 }
             }
@@ -382,23 +387,24 @@ impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Copy, Clone)]
-enum ArrowUsageState {
+pub(crate) enum ArrowUsageState {
     Active,
     Anchored,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Copy, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct ArrowFlow {
-    id: egui::Id,
+    pub(crate) id: egui::Id,
+    pub(crate) state: ArrowUsageState,
 
-    state: ArrowUsageState,
+    pub(crate) resource: ResourceDefinition,
 
-    start_flow_window: egui::Id,
-    end_flow_window: Option<egui::Id>,
-    start_flow_index: usize,
-    end_flow_index: usize,
+    pub(crate) start_flow_window: egui::Id,
+    pub(crate) end_flow_window: Option<egui::Id>,
+    pub(crate) start_flow_index: usize,
+    pub(crate) end_flow_index: usize,
 
-    layer_id: egui::LayerId,
+    pub(crate) layer_id: egui::LayerId,
 }
 
 impl RecipeWindowGUI for ArrowFlow {
@@ -470,10 +476,16 @@ impl RecipeWindowGUI for ArrowFlow {
 }
 
 impl ArrowFlow {
-    pub(crate) fn new(start_flow: egui::Id, layer_id: egui::LayerId, flow_index: usize) -> Self {
+    pub(crate) fn new(
+        resource: ResourceDefinition,
+        start_flow: egui::Id,
+        layer_id: egui::LayerId,
+        flow_index: usize,
+    ) -> Self {
         ArrowFlow {
             id: Self::gen_id(format!("Flow{start_flow:?}")),
             state: ArrowUsageState::Active,
+            resource,
             start_flow_window: start_flow,
             end_flow_window: None,
             start_flow_index: flow_index,
@@ -482,9 +494,20 @@ impl ArrowFlow {
         }
     }
 
-    pub(crate) fn put_end(&mut self, end_flow: egui::Id, flow_index: usize) {
+    pub(crate) fn put_end(
+        &mut self,
+        resource: ResourceDefinition,
+        end_flow: egui::Id,
+        flow_index: usize,
+    ) -> Result<(), FlowError> {
+        if resource != self.resource {
+            return Err(FlowError::new(FlowErrorType::WrongResourceType));
+        }
+
         self.end_flow_window = Some(end_flow);
         self.end_flow_index = flow_index;
         self.state = ArrowUsageState::Anchored;
+
+        Ok(())
     }
 }
