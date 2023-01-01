@@ -24,13 +24,33 @@ pub struct FactoryManagementUtilsApp {
     pub arrows: Vec<ArrowFlow>,
 }
 
+#[derive(Clone)]
+pub struct CoordinatesInfo {
+    pub(crate) window: egui::Rect,
+    pub(crate) out_flow: Vec<egui::Rect>,
+    pub(crate) in_flow: Vec<egui::Rect>,
+}
+
+impl Default for CoordinatesInfo {
+    fn default() -> Self {
+        CoordinatesInfo {
+            window: egui::Rect {
+                min: Default::default(),
+                max: Default::default(),
+            },
+            out_flow: vec![],
+            in_flow: vec![],
+        }
+    }
+}
+
 pub struct CommonManager {
-    pub window_coordinates: HashMap<egui::Id, egui::Rect>,
+    pub window_coordinates: HashMap<egui::Id, CoordinatesInfo>,
 
     pub arrow_active: bool,
 
-    pub clicked_start_arrow_id: Option<(egui::Id, egui::LayerId)>,
-    pub clicked_place_arrow_id: Option<egui::Id>,
+    pub clicked_start_arrow_info: Option<(egui::Id, egui::LayerId, usize)>,
+    pub clicked_place_arrow_info: Option<(egui::Id, usize)>,
 }
 
 impl Default for FactoryManagementUtilsApp {
@@ -42,8 +62,8 @@ impl Default for FactoryManagementUtilsApp {
             commons: CommonManager {
                 window_coordinates: Default::default(),
                 arrow_active: false,
-                clicked_start_arrow_id: None,
-                clicked_place_arrow_id: None,
+                clicked_start_arrow_info: None,
+                clicked_place_arrow_info: None,
             },
             show_errors: Default::default(),
             show_tooltips: Default::default(),
@@ -120,8 +140,8 @@ impl eframe::App for FactoryManagementUtilsApp {
                 ui.label("DEBUG");
                 let mut a = self.commons.arrow_active;
                 ui.checkbox(&mut a, "Arrow active");
-                let mut start_some = self.commons.clicked_start_arrow_id.is_some();
-                let mut place_some = self.commons.clicked_place_arrow_id.is_some();
+                let mut start_some = self.commons.clicked_start_arrow_info.is_some();
+                let mut place_some = self.commons.clicked_place_arrow_info.is_some();
                 ui.checkbox(&mut start_some, "clicked start is some");
                 ui.checkbox(&mut place_some, "clicked place is some");
                 let mut arrow_count = self.arrows.len();
@@ -174,26 +194,22 @@ impl eframe::App for FactoryManagementUtilsApp {
                 .show(&mut self.commons, ctx, !error);
 
             if active {
-                if self.commons.clicked_place_arrow_id.is_some() {
-                    self.active_arrow
-                        .as_mut()
-                        .unwrap()
-                        .put_end(self.commons.clicked_place_arrow_id.unwrap());
-                    self.arrows.push(self.active_arrow.clone().unwrap());
+                if self.commons.clicked_place_arrow_info.is_some() {
+                    let (id, flow_index) = self.commons.clicked_place_arrow_info.unwrap();
+                    self.active_arrow.as_mut().unwrap().put_end(id, flow_index);
+                    self.arrows.push(self.active_arrow.unwrap());
                     self.active_arrow = None;
                     self.commons.arrow_active = false;
-                    self.commons.clicked_place_arrow_id = None;
+                    self.commons.clicked_place_arrow_info = None;
                 }
             } else {
                 self.active_arrow = None;
                 self.commons.arrow_active = false;
             }
-        } else {
-            if self.commons.clicked_start_arrow_id.is_some() {
-                let (id, layer) = self.commons.clicked_start_arrow_id.unwrap();
-                self.active_arrow = Some(ArrowFlow::new(id, layer));
-                self.commons.clicked_start_arrow_id = None;
-            }
+        } else if self.commons.clicked_start_arrow_info.is_some() {
+            let (id, layer, flow_index) = self.commons.clicked_start_arrow_info.unwrap();
+            self.active_arrow = Some(ArrowFlow::new(id, layer, flow_index));
+            self.commons.clicked_start_arrow_info = None;
         }
     }
 

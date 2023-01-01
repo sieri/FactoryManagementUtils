@@ -1,11 +1,12 @@
-use crate::app::CommonManager;
+use crate::app::{CommonManager, CoordinatesInfo};
 use crate::resources::ManageFlow::{RecipeInput, RecipeOutput};
 use crate::resources::{
     ManageFlow, ManageResourceFlow, RatePer, RecipeInputResource, RecipeOutputResource,
     ResourceDefinition, ResourceFlow, Unit,
 };
 use crate::utils::{Io, Number};
-use egui::{Sense, Widget};
+use egui::Widget;
+use std::default::Default;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub trait RecipeWindowGUI {
@@ -25,7 +26,7 @@ pub trait RecipeWindowGUI {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        egui::Id::new(name + &*format!("{}", timestamp))
+        egui::Id::new(name + &*format!("{timestamp}"))
     }
 }
 
@@ -51,8 +52,8 @@ pub struct BasicRecipeWindowDescriptor {
     ///Resource adding windows
     resource_adding_windows: Vec<ResourceAddingWindow<usize>>,
 
-    ///Outgoing resource flows
-    out_flow: Vec<ArrowFlow>,
+    #[serde(skip)]
+    window_coordinate: CoordinatesInfo,
 }
 
 impl Default for BasicRecipeWindowDescriptor {
@@ -63,6 +64,9 @@ impl Default for BasicRecipeWindowDescriptor {
 
 impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
     fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
+        self.window_coordinate.in_flow.clear();
+        self.window_coordinate.out_flow.clear();
+
         let mut open = true;
         let response = egui::Window::new(self.title.to_owned())
             .id(self.id)
@@ -80,17 +84,8 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
                 })
             });
         let inner_response = response.unwrap();
-        if open {
-            commons
-                .window_coordinates
-                .insert(self.id, inner_response.response.rect);
-            let resp = inner_response.response.interact(Sense::click());
-            if resp.clicked() && commons.arrow_active {
-                commons.clicked_place_arrow_id = Some(self.id);
-            }
-        } else {
-            commons.window_coordinates.remove(&self.id);
-        }
+        self.window_coordinate.window = inner_response.response.rect;
+
         self.resource_adding_windows.retain_mut(|window| {
             let open = window.show(commons, ctx, enabled);
             if window.okay {
@@ -108,8 +103,13 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
             open && !window.okay
         });
 
-        self.out_flow
-            .retain_mut(|arrow| arrow.show(commons, ctx, enabled));
+        if open {
+            commons
+                .window_coordinates
+                .insert(self.id, self.window_coordinate.clone());
+        } else {
+            commons.window_coordinates.remove(&self.id);
+        }
 
         open
     }
@@ -138,7 +138,7 @@ impl BasicRecipeWindowDescriptor {
             outputs: vec![output],
             power: None,
             resource_adding_windows: vec![],
-            out_flow: vec![],
+            window_coordinate: CoordinatesInfo::default(),
         }
     }
 
@@ -217,6 +217,19 @@ impl BasicRecipeWindowDescriptor {
         };
         let mut amount = resource_flow.amount;
         ui.horizontal(|ui| {
+            match dir {
+                Io::Input => {
+                    let btn_resp = ui.button("⭕");
+
+                    self.window_coordinate.in_flow.push(btn_resp.rect);
+
+                    if btn_resp.clicked() && commons.arrow_active {
+                        commons.clicked_place_arrow_info = Some((self.id, resource_flow_index));
+                    }
+                }
+                Io::Output => {}
+            }
+
             egui::TextEdit::singleline(&mut name)
                 .desired_width((name_len * 7) as f32)
                 .show(ui);
@@ -227,8 +240,13 @@ impl BasicRecipeWindowDescriptor {
             match dir {
                 Io::Input => {}
                 Io::Output => {
-                    if ui.button("⭕").clicked() {
-                        commons.clicked_start_arrow_id = Some((self.id, ui.layer_id()));
+                    let btn_resp = ui.button("⭕");
+
+                    self.window_coordinate.out_flow.push(btn_resp.rect);
+
+                    if btn_resp.clicked() {
+                        commons.clicked_start_arrow_info =
+                            Some((self.id, ui.layer_id(), resource_flow_index));
                     }
                 }
             }
@@ -375,8 +393,10 @@ pub struct ArrowFlow {
 
     state: ArrowUsageState,
 
-    start_flow: egui::Id,
-    end_flow: Option<egui::Id>,
+    start_flow_window: egui::Id,
+    end_flow_window: Option<egui::Id>,
+    start_flow_index: usize,
+    end_flow_index: usize,
 
     layer_id: egui::LayerId,
 }
@@ -385,12 +405,24 @@ impl RecipeWindowGUI for ArrowFlow {
     fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
         let painter = ctx.layer_painter(self.layer_id);
 
-        let start_rect = commons.window_coordinates.get(&self.start_flow);
-        let start_point = match start_rect {
+        let start_coordinate_info = commons.window_coordinates.get(&self.start_flow_window);
+        let start_point = match start_coordinate_info {
             None => return false,
-            Some(r) => r.max,
+            Some(r) => {
+                let start_rect = r.window;
+                let flow_rect = r.out_flow.get(self.start_flow_index);
+                match flow_rect {
+                    None => egui::Pos2 {
+                        x: start_rect.max.x,
+                        y: (start_rect.max.y - start_rect.min.y) / 2.0 + start_rect.min.y,
+                    },
+                    Some(rect) => egui::Pos2 {
+                        x: start_rect.max.x,
+                        y: (rect.max.y - rect.min.y) / 2.0 + rect.min.y,
+                    },
+                }
+            }
         };
-
         let end_point = match self.state {
             ArrowUsageState::Active => ctx
                 .pointer_hover_pos()
@@ -398,10 +430,23 @@ impl RecipeWindowGUI for ArrowFlow {
             ArrowUsageState::Anchored => {
                 let end_rect = commons
                     .window_coordinates
-                    .get(self.end_flow.as_ref().unwrap());
+                    .get(self.end_flow_window.as_ref().unwrap());
                 match end_rect {
                     None => return false,
-                    Some(r) => r.min,
+                    Some(r) => {
+                        let start_rect = r.window;
+                        let flow_rect = r.in_flow.get(self.end_flow_index);
+                        match flow_rect {
+                            None => egui::Pos2 {
+                                x: start_rect.min.x,
+                                y: (start_rect.max.y - start_rect.min.y) / 2.0 + start_rect.min.y,
+                            },
+                            Some(rect) => egui::Pos2 {
+                                x: start_rect.min.x,
+                                y: (rect.max.y - rect.min.y) / 2.0 + rect.min.y,
+                            },
+                        }
+                    }
                 }
             }
         };
@@ -425,18 +470,21 @@ impl RecipeWindowGUI for ArrowFlow {
 }
 
 impl ArrowFlow {
-    pub(crate) fn new(start_flow: egui::Id, layer_id: egui::LayerId) -> Self {
+    pub(crate) fn new(start_flow: egui::Id, layer_id: egui::LayerId, flow_index: usize) -> Self {
         ArrowFlow {
-            id: Self::gen_id(format!("Flow{:?}", start_flow)),
+            id: Self::gen_id(format!("Flow{start_flow:?}")),
             state: ArrowUsageState::Active,
-            start_flow,
-            end_flow: None,
+            start_flow_window: start_flow,
+            end_flow_window: None,
+            start_flow_index: flow_index,
+            end_flow_index: 0,
             layer_id,
         }
     }
 
-    pub(crate) fn put_end(&mut self, end_flow: egui::Id) {
-        self.end_flow = Some(end_flow);
+    pub(crate) fn put_end(&mut self, end_flow: egui::Id, flow_index: usize) {
+        self.end_flow_window = Some(end_flow);
+        self.end_flow_index = flow_index;
         self.state = ArrowUsageState::Anchored;
     }
 }
