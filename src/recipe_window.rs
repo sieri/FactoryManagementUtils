@@ -1,11 +1,10 @@
 use crate::app::CommonManager;
+use crate::resources::ManageFlow::{RecipeInput, RecipeOutput};
 use crate::resources::{
-    ManageResourceFlow, RatePer, RecipeInputResource, RecipeOutputResource, ResourceDefinition,
-    ResourceFlow, Unit,
+    ManageFlow, ManageResourceFlow, RatePer, RecipeInputResource, RecipeOutputResource,
+    ResourceDefinition, ResourceFlow, Unit,
 };
 use crate::utils::{Io, Number};
-use eframe::emath::Rect;
-use egui::accesskit::AriaCurrent::False;
 use egui::{Sense, Widget};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -41,16 +40,13 @@ pub struct BasicRecipeWindowDescriptor {
     id: egui::Id,
 
     ///list of inputs
-    #[serde(skip)] //TODO: Serialize this probably manually
-    inputs: Vec<Box<dyn ManageResourceFlow<usize>>>,
+    inputs: Vec<ManageFlow<usize>>,
 
     ///list of outputs
-    #[serde(skip)] //TODO: Serialize this probably manually
-    outputs: Vec<Box<dyn ManageResourceFlow<usize>>>,
+    outputs: Vec<ManageFlow<usize>>,
 
     ///power used per cycle
-    #[serde(skip)] //TODO: Serialize this probably manually
-    power: Option<Box<dyn ManageResourceFlow<usize>>>,
+    power: Option<ManageFlow<usize>>,
 
     ///Resource adding windows
     resource_adding_windows: Vec<ResourceAddingWindow<usize>>,
@@ -134,7 +130,7 @@ impl BasicRecipeWindowDescriptor {
             unit: Unit::Piece,
         };
         let flow = ResourceFlow::new(&resource, 1, RatePer::Second);
-        let output = Box::new(RecipeOutputResource::new(resource, flow));
+        let output = RecipeOutput(RecipeOutputResource::new(resource, flow));
         Self {
             title,
             id,
@@ -198,9 +194,19 @@ impl BasicRecipeWindowDescriptor {
         _enabled: bool,
     ) {
         //get variables
-        let resource_flow = match dir {
-            Io::Input => &self.inputs[resource_flow_index],
-            Io::Output => &self.outputs[resource_flow_index],
+        let resource_flow: &dyn ManageResourceFlow<usize> = match dir {
+            Io::Input => match &self.inputs[resource_flow_index] {
+                RecipeInput(r) => r,
+                RecipeOutput(_) => {
+                    panic!("Error!!! Impossible situation")
+                }
+            },
+            Io::Output => match &self.outputs[resource_flow_index] {
+                RecipeInput(_) => {
+                    panic!("Error!!! Impossible situation")
+                }
+                RecipeOutput(r) => r,
+            },
         };
         let resource = resource_flow.resource();
         let mut name = resource.name;
@@ -230,12 +236,15 @@ impl BasicRecipeWindowDescriptor {
     }
 
     fn show_power(&mut self, ui: &mut egui::Ui, _enabled: bool) {
-        let power = match &self.power {
+        let power: &dyn ManageResourceFlow<usize> = match &self.power {
             None => {
                 if ui.button("Add Power").clicked() {}
                 return;
             }
-            Some(a) => a,
+            Some(a) => match a {
+                RecipeInput(p) => p,
+                RecipeOutput(p) => p,
+            },
         };
         //get variables
         let resource = power.resource();
@@ -302,15 +311,15 @@ impl<T: Number> ResourceAddingWindow<T> {
         }
     }
 
-    pub(crate) fn get_resource(&self) -> Box<dyn ManageResourceFlow<T>> {
+    pub(crate) fn get_resource(&self) -> ManageFlow<T> {
         let resource = ResourceDefinition {
             name: self.resource_name.clone(),
             unit: Unit::Piece,
         };
         let flow = ResourceFlow::new(&resource, self.amount_per_cycle, RatePer::Second);
         match self.dir {
-            Io::Input => Box::new(RecipeInputResource::new(resource, flow)),
-            Io::Output => Box::new(RecipeOutputResource::new(resource, flow)),
+            Io::Input => RecipeInput(RecipeInputResource::new(resource, flow)),
+            Io::Output => RecipeOutput(RecipeOutputResource::new(resource, flow)),
         }
     }
 }

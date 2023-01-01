@@ -28,7 +28,7 @@ pub(crate) enum RatePer {
 }
 
 ///A type of a resource
-#[derive(PartialEq, PartialOrd, Clone)]
+#[derive(PartialEq, PartialOrd, Clone, serde::Deserialize, serde::Serialize)]
 pub(crate) struct ResourceDefinition {
     ///The name of the resource, should be unique
     pub name: String,
@@ -38,7 +38,7 @@ pub(crate) struct ResourceDefinition {
 }
 
 ///A flow of resource
-#[derive(PartialEq, PartialOrd, Clone)]
+#[derive(PartialEq, PartialOrd, Clone, serde::Deserialize, serde::Serialize)]
 pub(crate) struct ResourceFlow<T: Number> {
     pub resource: ResourceDefinition,
     pub amount: T,
@@ -184,10 +184,8 @@ pub(crate) trait ManageResourceFlow<T: Number> {
     fn resource(&self) -> ResourceDefinition;
 }
 
-///accessible trait for any structure that manage a resource flow
-pub trait AnyManageResourceFlow {}
-
 ///an input resource for a recipe
+#[derive(serde::Deserialize, serde::Serialize)]
 pub(crate) struct RecipeInputResource<T: Number> {
     ///the type of resource this considers
     resource: ResourceDefinition,
@@ -200,6 +198,7 @@ pub(crate) struct RecipeInputResource<T: Number> {
 }
 
 ///an input resource for a recipe
+#[derive(serde::Deserialize, serde::Serialize)]
 pub(crate) struct RecipeOutputResource<T: Number> {
     ///the type of resource this considers
     resource: ResourceDefinition,
@@ -299,9 +298,11 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
     }
 }
 
-impl<T> AnyManageResourceFlow for dyn ManageResourceFlow<T> {}
-impl<T: Number> AnyManageResourceFlow for RecipeInputResource<T> {}
-impl<T: Number> AnyManageResourceFlow for RecipeOutputResource<T> {}
+#[derive(serde::Deserialize, serde::Serialize)]
+pub(crate) enum ManageFlow<T: Number> {
+    RecipeInput(RecipeInputResource<T>),
+    RecipeOutput(RecipeOutputResource<T>),
+}
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum FlowErrorType {
