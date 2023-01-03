@@ -198,7 +198,6 @@ impl BasicRecipeWindowDescriptor {
         });
     }
 
-    #[allow(clippy::borrowed_box)]
     fn show_flow(
         &mut self,
         commons: &mut CommonManager,
@@ -225,7 +224,7 @@ impl BasicRecipeWindowDescriptor {
         let resource = resource_flow.resource();
 
         let mut name = resource.clone().name;
-        let name_len = name.len();
+
         let resource_flow = match dir {
             Io::Input => resource_flow.total_out(),
             Io::Output => resource_flow.total_in(),
@@ -248,9 +247,7 @@ impl BasicRecipeWindowDescriptor {
                 Io::Output => {}
             }
 
-            egui::TextEdit::singleline(&mut name)
-                .desired_width((name_len * 7) as f32)
-                .show(ui);
+            text_edit(ui, &mut name);
             ui.label(":");
 
             ui.vertical(|ui| {
@@ -306,7 +303,7 @@ impl BasicRecipeWindowDescriptor {
         let resource_flow = power.total_out();
         let mut amount = resource_flow.amount;
         ui.horizontal(|ui| {
-            ui.text_edit_singleline(&mut name);
+            text_edit(ui, &mut name);
             ui.label(":");
             egui::DragValue::new(&mut amount).ui(ui);
             ui.label("per cycle");
@@ -319,14 +316,7 @@ impl BasicRecipeWindowDescriptor {
         ui.horizontal(|ui| {
             ui.label("Cycle duration:");
             egui::DragValue::new(&mut amount).ui(ui);
-            egui::ComboBox::from_label("Time unit")
-                .selected_text(format!("{:?}", rate))
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut rate, RatePer::Tick, "Tick");
-                    ui.selectable_value(&mut rate, RatePer::Second, "Second");
-                    ui.selectable_value(&mut rate, RatePer::Minute, "Minute");
-                    ui.selectable_value(&mut rate, RatePer::Hour, "Hour");
-                });
+            rate_combo(ui, &mut rate);
         });
         let mut changed = false;
         if amount != self.time_cycle {
@@ -369,6 +359,116 @@ impl BasicRecipeWindowDescriptor {
         );
         let window = ResourceAddingWindow::<usize>::new(title, dir);
         self.resource_adding_windows.push(window);
+    }
+}
+
+fn rate_combo(ui: &mut egui::Ui, rate: &mut RatePer) {
+    egui::ComboBox::from_label("Time unit")
+        .selected_text(format!("{rate:?}"))
+        .show_ui(ui, |ui| {
+            ui.selectable_value(rate, RatePer::Tick, "Tick");
+            ui.selectable_value(rate, RatePer::Second, "Second");
+            ui.selectable_value(rate, RatePer::Minute, "Minute");
+            ui.selectable_value(rate, RatePer::Hour, "Hour");
+        });
+}
+
+fn text_edit(ui: &mut egui::Ui, text: &mut String) {
+    let text_len = text.len();
+    egui::TextEdit::singleline(text)
+        .desired_width((text_len * 7) as f32)
+        .show(ui);
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct ResourceSource {
+    ///unique id of the resource
+    id: egui::Id,
+
+    ///output
+    pub(crate) output: RecipeOutputResource<usize>,
+
+    ///limited output
+    limited_output: bool,
+
+    ///limit amount
+    limit_amount: usize,
+
+    ///limit rate
+    limit_rate: RatePer,
+
+    #[serde(skip)]
+    window_coordinate: CoordinatesInfo,
+}
+
+impl RecipeWindowGUI for ResourceSource {
+    fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
+        self.window_coordinate.in_flow.clear();
+        self.window_coordinate.out_flow.clear();
+
+        let mut open = true;
+
+        let resource = self.output.resource();
+
+        let mut resource_name = resource.name.clone();
+
+        let response = egui::Window::new("Resource source")
+            .id(self.id)
+            .enabled(enabled)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    text_edit(ui, &mut resource_name);
+
+                    ui.checkbox(&mut self.limited_output, "Limited");
+
+                    if self.limited_output {
+                        egui::DragValue::new(&mut self.limit_amount).ui(ui);
+                        rate_combo(ui, &mut self.limit_rate);
+                    }
+
+                    let btn_resp = ui.button("⭕");
+
+                    self.window_coordinate.out_flow.push(btn_resp.rect);
+
+                    if btn_resp.clicked() {
+                        commons.clicked_start_arrow_info =
+                            Some((resource.clone(), self.id, ui.layer_id(), 0));
+                    }
+                });
+            });
+        let inner_response = response.unwrap();
+        self.window_coordinate.window = inner_response.response.rect;
+
+        if open {
+            commons
+                .window_coordinates
+                .insert(self.id, self.window_coordinate.clone());
+        } else {
+            commons.window_coordinates.remove(&self.id);
+        }
+
+        open
+    }
+}
+
+impl ResourceSource {
+    pub fn new(resource: String) -> Self {
+        let r = ResourceDefinition {
+            name: resource.clone(),
+            unit: Unit::Piece,
+        };
+        Self {
+            id: Self::gen_id(resource),
+            output: RecipeOutputResource::new(
+                r.clone(),
+                ResourceFlow::new(&r, 10, 1.0f32, RatePer::Tick),
+            ),
+            limited_output: false,
+            limit_amount: 1,
+            limit_rate: RatePer::Second,
+            window_coordinate: Default::default(),
+        }
     }
 }
 

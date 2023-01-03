@@ -1,5 +1,7 @@
-use crate::recipe_window::{ArrowFlow, BasicRecipeWindowDescriptor, RecipeWindowGUI};
-use crate::resources::ResourceDefinition;
+use crate::recipe_window::{
+    ArrowFlow, BasicRecipeWindowDescriptor, RecipeWindowGUI, ResourceSource,
+};
+use crate::resources::{ManageResourceFlow, ResourceDefinition};
 use copypasta::{ClipboardContext, ClipboardProvider};
 use egui::Widget;
 use std::collections::{HashMap, VecDeque};
@@ -9,8 +11,10 @@ use std::time::{Duration, Instant};
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct FactoryManagementUtilsApp {
-    label: String,
+    new_recipe_title: String,
+    new_resource_source: String,
     recipes: Vec<BasicRecipeWindowDescriptor>,
+    sources: Vec<ResourceSource>,
     #[serde(skip)]
     commons: CommonManager,
 
@@ -68,8 +72,10 @@ impl Default for FactoryManagementUtilsApp {
     fn default() -> Self {
         Self {
             // Example stuff:
-            label: "Hello World!".to_owned(),
+            new_recipe_title: "Hello World!".to_owned(),
+            new_resource_source: "".to_string(),
             recipes: vec![],
+            sources: vec![],
             commons: CommonManager {
                 window_coordinates: Default::default(),
                 arrow_active: false,
@@ -117,7 +123,7 @@ impl eframe::App for FactoryManagementUtilsApp {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Reset").clicked() {
-                        self.label.clear();
+                        self.new_recipe_title.clear();
                         self.recipes.clear();
                     }
                     if ui.button("Quit").clicked() {
@@ -133,19 +139,45 @@ impl eframe::App for FactoryManagementUtilsApp {
 
             ui.horizontal(|ui| {
                 ui.label("New recipe title: ");
-                ui.text_edit_singleline(&mut self.label);
+                ui.text_edit_singleline(&mut self.new_recipe_title);
             });
 
             if ui.button("Create recipe").clicked() {
                 //spawn a button in the central panel
-                if self.label.is_empty() {
+                if self.new_recipe_title.is_empty() {
                     self.commons
                         .add_error(ShowError::new("Need a title to create a window".to_owned()))
                 } else {
-                    let recipe_window = BasicRecipeWindowDescriptor::new(self.label.to_owned());
+                    let recipe_window =
+                        BasicRecipeWindowDescriptor::new(self.new_recipe_title.to_owned());
                     self.recipes.push(recipe_window);
                 }
             }
+
+            ui.separator();
+
+            ui.horizontal(|ui| {
+                ui.label("New resource source:");
+                ui.text_edit_singleline(&mut self.new_resource_source);
+            });
+
+            if ui.button("Create source").clicked() {
+                let source = ResourceSource::new(self.new_resource_source.clone());
+                self.sources.push(source);
+            }
+
+            ui.separator();
+            ui.collapsing("Resource usage", |ui| {
+                for source in self.sources.iter() {
+                    let flow = source.output.total_out();
+                    ui.horizontal(|ui| {
+                        ui.label(format!(
+                            "{}: {} {}",
+                            flow.resource.name, flow.amount, flow.rate
+                        ));
+                    });
+                }
+            });
 
             if cfg!(debug_assertions) {
                 ui.separator();
@@ -165,6 +197,11 @@ impl eframe::App for FactoryManagementUtilsApp {
                 ui.horizontal(|ui| {
                     ui.label("Recipe");
                     egui::DragValue::new(&mut recipe_count).ui(ui);
+                });
+                let mut sources_count = self.sources.len();
+                ui.horizontal(|ui| {
+                    ui.label("Source");
+                    egui::DragValue::new(&mut sources_count).ui(ui);
                 });
             }
 
@@ -194,6 +231,8 @@ impl eframe::App for FactoryManagementUtilsApp {
 
             self.recipes
                 .retain_mut(|recipe| recipe.show(&mut self.commons, ctx, !error));
+            self.sources
+                .retain_mut(|source| source.show(&mut self.commons, ctx, !error));
         });
 
         self.arrows
@@ -222,9 +261,7 @@ impl eframe::App for FactoryManagementUtilsApp {
                             self.arrows
                                 .push(self.active_arrow.as_ref().unwrap().clone());
                         }
-                        Err(e) => self
-                            .commons
-                            .add_error(ShowError::new(String::from(e.str()))),
+                        Err(e) => self.commons.add_error(ShowError::new(e.str())),
                     };
 
                     self.active_arrow = None;
