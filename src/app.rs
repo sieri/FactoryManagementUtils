@@ -13,9 +13,6 @@ pub struct FactoryManagementUtilsApp {
     recipes: Vec<BasicRecipeWindowDescriptor>,
     #[serde(skip)]
     commons: CommonManager,
-    // List of error popups to keep
-    #[serde(skip)]
-    show_errors: VecDeque<ShowError>,
 
     /// List of tooltips that can be shown
     #[serde(skip)]
@@ -52,6 +49,19 @@ pub struct CommonManager {
 
     pub clicked_start_arrow_info: Option<(ResourceDefinition, egui::Id, egui::LayerId, usize)>,
     pub clicked_place_arrow_info: Option<(ResourceDefinition, egui::Id, usize)>,
+
+    // List of error popups to keep
+    show_errors: VecDeque<ShowError>,
+}
+
+impl CommonManager {
+    /// Add an error to the GUI.
+    ///
+    /// The new error will be shown to the user if it is the only one, or else it will wait in a
+    /// queue until older errors have been acknowledged.
+    pub(crate) fn add_error(&mut self, err: ShowError) {
+        self.show_errors.push_front(err);
+    }
 }
 
 impl Default for FactoryManagementUtilsApp {
@@ -65,8 +75,8 @@ impl Default for FactoryManagementUtilsApp {
                 arrow_active: false,
                 clicked_start_arrow_info: None,
                 clicked_place_arrow_info: None,
+                show_errors: Default::default(),
             },
-            show_errors: Default::default(),
             show_tooltips: Default::default(),
             active_arrow: None,
             arrows: vec![],
@@ -94,9 +104,7 @@ impl eframe::App for FactoryManagementUtilsApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.calculate();
-
-        let error = !self.show_errors.is_empty();
+        let error = !self.commons.show_errors.is_empty();
 
         if error {
             self.error_window(ctx);
@@ -131,7 +139,8 @@ impl eframe::App for FactoryManagementUtilsApp {
             if ui.button("Create recipe").clicked() {
                 //spawn a button in the central panel
                 if self.label.is_empty() {
-                    self.add_error(ShowError::new("Need a title to create a window".to_owned()))
+                    self.commons
+                        .add_error(ShowError::new("Need a title to create a window".to_owned()))
                 } else {
                     let recipe_window = BasicRecipeWindowDescriptor::new(self.label.to_owned());
                     self.recipes.push(recipe_window);
@@ -208,10 +217,14 @@ impl eframe::App for FactoryManagementUtilsApp {
 
                     match err {
                         Ok(_) => {
+                            //connect arrow
+
                             self.arrows
                                 .push(self.active_arrow.as_ref().unwrap().clone());
                         }
-                        Err(e) => self.add_error(ShowError::new(String::from(e.str()))),
+                        Err(e) => self
+                            .commons
+                            .add_error(ShowError::new(String::from(e.str()))),
                     };
 
                     self.active_arrow = None;
@@ -225,12 +238,7 @@ impl eframe::App for FactoryManagementUtilsApp {
         } else if self.commons.clicked_start_arrow_info.is_some() {
             let (resource, id, layer, flow_index) =
                 self.commons.clicked_start_arrow_info.as_ref().unwrap();
-            self.active_arrow = Some(ArrowFlow::new(
-                resource.clone(),
-                id.clone(),
-                layer.clone(),
-                flow_index.clone(),
-            ));
+            self.active_arrow = Some(ArrowFlow::new(resource.clone(), *id, *layer, *flow_index));
             self.commons.clicked_start_arrow_info = None;
         }
     }
@@ -244,7 +252,7 @@ impl eframe::App for FactoryManagementUtilsApp {
 impl FactoryManagementUtilsApp {
     /// Show error window.
     fn error_window(&mut self, ctx: &egui::Context) -> bool {
-        let err = self.show_errors.pop_back();
+        let err = self.commons.show_errors.pop_back();
         if let Some(err) = err {
             let mut result = true;
             let width = 550.0;
@@ -296,7 +304,7 @@ impl FactoryManagementUtilsApp {
                             if ui.button("Okay").clicked() {
                                 result = false;
                             } else {
-                                self.show_errors.push_back(err);
+                                self.commons.show_errors.push_back(err);
                             }
                         });
                     });
@@ -306,14 +314,6 @@ impl FactoryManagementUtilsApp {
         } else {
             true
         }
-    }
-
-    /// Add an error to the GUI.
-    ///
-    /// The new error will be shown to the user if it is the only one, or else it will wait in a
-    /// queue until older errors have been acknowledged.
-    pub(crate) fn add_error(&mut self, err: ShowError) {
-        self.show_errors.push_front(err);
     }
 
     /// Add a tooltip to the GUI.
@@ -351,9 +351,6 @@ impl FactoryManagementUtilsApp {
             }
         }
     }
-
-    ///Calculate the current recipe
-    fn calculate(&mut self) {}
 }
 
 /// Holds state for an error message to show to the user, and provides a feedback mechanism for the

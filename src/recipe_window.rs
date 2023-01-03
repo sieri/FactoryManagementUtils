@@ -1,4 +1,4 @@
-use crate::app::{CommonManager, CoordinatesInfo};
+use crate::app::{CommonManager, CoordinatesInfo, ShowError};
 use crate::resources::ManageFlow::{RecipeInput, RecipeOutput};
 use crate::resources::{
     FlowError, FlowErrorType, ManageFlow, ManageResourceFlow, RatePer, RecipeInputResource,
@@ -7,6 +7,7 @@ use crate::resources::{
 use crate::utils::{Io, Number};
 use egui::Widget;
 use std::default::Default;
+use std::f32;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub trait RecipeWindowGUI {
@@ -52,6 +53,12 @@ pub struct BasicRecipeWindowDescriptor {
     ///Resource adding windows
     resource_adding_windows: Vec<ResourceAddingWindow<usize>>,
 
+    ///Time of cycle
+    time_cycle: usize,
+
+    ///Time unit of cycle
+    time_unit: RatePer,
+
     #[serde(skip)]
     window_coordinate: CoordinatesInfo,
 }
@@ -81,6 +88,10 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
                     });
                     ui.separator();
                     self.show_power(ui, enabled);
+                    let result = self.show_time_settings(ui, enabled);
+                    if result.is_err() {
+                        commons.add_error(ShowError::new(format!("{}", result.err().unwrap())));
+                    }
                 })
             });
         let inner_response = response.unwrap();
@@ -129,7 +140,8 @@ impl BasicRecipeWindowDescriptor {
             name: title.clone(),
             unit: Unit::Piece,
         };
-        let flow = ResourceFlow::new(&resource, 1, RatePer::Second);
+        let mut flow = ResourceFlow::new(&resource, 1, 1.0f32, RatePer::Second);
+        let _ = flow.convert_time_base(1, RatePer::Second);
         let output = RecipeOutput(RecipeOutputResource::new(resource, flow));
         Self {
             title,
@@ -138,6 +150,8 @@ impl BasicRecipeWindowDescriptor {
             outputs: vec![output],
             power: None,
             resource_adding_windows: vec![],
+            time_cycle: 1,
+            time_unit: RatePer::Second,
             window_coordinate: CoordinatesInfo::default(),
         }
     }
@@ -209,13 +223,16 @@ impl BasicRecipeWindowDescriptor {
             },
         };
         let resource = resource_flow.resource();
+
         let mut name = resource.clone().name;
         let name_len = name.len();
         let resource_flow = match dir {
             Io::Input => resource_flow.total_out(),
             Io::Output => resource_flow.total_in(),
         };
-        let mut amount = resource_flow.amount;
+        let rate = resource_flow.rate;
+        let mut amount = resource_flow.amount_per_cycle;
+        let mut amount_per_time = resource_flow.amount;
         ui.horizontal(|ui| {
             match dir {
                 Io::Input => {
@@ -235,8 +252,22 @@ impl BasicRecipeWindowDescriptor {
                 .desired_width((name_len * 7) as f32)
                 .show(ui);
             ui.label(":");
-            egui::DragValue::new(&mut amount).ui(ui);
-            ui.label("per cycle");
+
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    egui::DragValue::new(&mut amount).ui(ui);
+                    ui.label("per cycle");
+                });
+                ui.horizontal(|ui| {
+                    egui::DragValue::new(&mut amount_per_time).ui(ui);
+                    ui.label(match rate {
+                        RatePer::Tick => "/tick",
+                        RatePer::Second => "/s",
+                        RatePer::Minute => "/min ",
+                        RatePer::Hour => "/h",
+                    })
+                });
+            });
 
             match dir {
                 Io::Input => {}
@@ -280,6 +311,54 @@ impl BasicRecipeWindowDescriptor {
             egui::DragValue::new(&mut amount).ui(ui);
             ui.label("per cycle");
         });
+    }
+
+    fn show_time_settings(&mut self, ui: &mut egui::Ui, _enabled: bool) -> Result<(), FlowError> {
+        let mut amount = self.time_cycle;
+        let mut rate = self.time_unit;
+        ui.horizontal(|ui| {
+            ui.label("Cycle duration:");
+            egui::DragValue::new(&mut amount).ui(ui);
+            egui::ComboBox::from_label("Time unit")
+                .selected_text(format!("{:?}", rate))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut rate, RatePer::Tick, "Tick");
+                    ui.selectable_value(&mut rate, RatePer::Second, "Second");
+                    ui.selectable_value(&mut rate, RatePer::Minute, "Minute");
+                    ui.selectable_value(&mut rate, RatePer::Hour, "Hour");
+                });
+        });
+        let mut changed = false;
+        if amount != self.time_cycle {
+            self.time_cycle = amount;
+            changed = true;
+        }
+
+        if rate != self.time_unit {
+            self.time_unit = rate;
+            changed = true;
+        }
+
+        if changed {
+            let update_flow = |flow: &mut Vec<ManageFlow<usize>>| -> Result<(), FlowError> {
+                for f in flow.iter_mut() {
+                    match f {
+                        RecipeInput(f) => {
+                            f.needed
+                                .convert_time_base(self.time_cycle, self.time_unit)?;
+                        }
+                        RecipeOutput(f) => {
+                            f.created
+                                .convert_time_base(self.time_cycle, self.time_unit)?;
+                        }
+                    }
+                }
+                Ok(())
+            };
+            update_flow(&mut self.inputs)?;
+            update_flow(&mut self.outputs)?;
+        }
+        Ok(())
     }
 
     fn open_resource_adding_window(&mut self, dir: Io) {
@@ -339,7 +418,7 @@ impl<T: Number> ResourceAddingWindow<T> {
             name: self.resource_name.clone(),
             unit: Unit::Piece,
         };
-        let flow = ResourceFlow::new(&resource, self.amount_per_cycle, RatePer::Second);
+        let flow = ResourceFlow::new(&resource, self.amount_per_cycle, 1.0f32, RatePer::Second);
         match self.dir {
             Io::Input => RecipeInput(RecipeInputResource::new(resource, flow)),
             Io::Output => RecipeOutput(RecipeOutputResource::new(resource, flow)),
