@@ -7,7 +7,10 @@ use crate::resources::{
 };
 use copypasta::{ClipboardContext, ClipboardProvider};
 use egui::Widget;
+use rfd::FileDialog;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, LinkedList, VecDeque};
+use std::fs::File;
 use std::time::{Duration, Instant};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -133,6 +136,16 @@ impl FactoryManagementUtilsApp {
         Default::default()
     }
 
+    ///reload
+    fn reload(&mut self, other: Self) {
+        self.new_recipe_title = other.new_recipe_title;
+        self.new_resource_source = other.new_resource_source;
+        self.recipes = other.recipes;
+        self.sources = other.sources;
+        self.active_arrow = other.active_arrow;
+        self.arrows = other.arrows;
+    }
+
     fn calculate(&mut self) {
         println!("==================Calculate==================");
 
@@ -181,35 +194,34 @@ impl FactoryManagementUtilsApp {
                 RecipeWindowType::Source => None,
             };
 
-            if source_window_index.is_some() && end_window_index.is_some() {
-                let source_window_index = source_window_index.unwrap();
-                let end_window_index = end_window_index.unwrap();
+            if let Some(source_window_index) = source_window_index {
+                if let Some(end_window_index) = end_window_index {
+                    let helper = FlowCalculatorHelper {
+                        source_window_index,
+                        source_flow_index,
+                        end_window_index,
+                        end_flow_index,
 
-                let helper = FlowCalculatorHelper {
-                    source_window_index,
-                    source_flow_index,
-                    end_window_index,
-                    end_flow_index,
+                        source_type,
+                    };
 
-                    source_type,
-                };
+                    match source_type {
+                        RecipeWindowType::Basic => {
+                            let source_order = recipes_helpers[source_window_index].0;
+                            let mut end_order = recipes_helpers[end_window_index].0;
 
-                match source_type {
-                    RecipeWindowType::Basic => {
-                        let source_order = recipes_helpers[source_window_index].0;
-                        let mut end_order = recipes_helpers[end_window_index].0;
+                            if source_order >= end_order {
+                                end_order = source_order + 1usize;
+                            }
 
-                        if source_order >= end_order {
-                            end_order = source_order + 1usize;
+                            recipes_helpers[end_window_index]
+                                .1
+                                .push_back(FlowCalculatorType::Helper(helper));
+                            recipes_helpers[end_window_index].0 = end_order;
                         }
-
-                        recipes_helpers[end_window_index]
-                            .1
-                            .push_back(FlowCalculatorType::Helper(helper));
-                        recipes_helpers[end_window_index].0 = end_order;
-                    }
-                    RecipeWindowType::Source => {
-                        sources_helpers.push_back(FlowCalculatorType::Helper(helper));
+                        RecipeWindowType::Source => {
+                            sources_helpers.push_back(FlowCalculatorType::Helper(helper));
+                        }
                     }
                 }
             }
@@ -219,7 +231,7 @@ impl FactoryManagementUtilsApp {
         recipes_helpers.sort_by(|helper1, helper2| helper1.0.partial_cmp(&helper2.0).unwrap());
 
         for (order, mut list) in recipes_helpers {
-            println!("{}", order);
+            println!("{order}");
             if list.front().is_some() {
                 let index = match list.front().unwrap() {
                     FlowCalculatorType::Helper(h) => h.end_window_index,
@@ -256,8 +268,7 @@ impl FactoryManagementUtilsApp {
 
                                             if !(added_source && added_input) {
                                                 println!(
-                                                    "Error: added_source:{} added_inputs{}",
-                                                    added_source, added_input
+                                                    "Error: added_source:{added_source} added_inputs{added_input}"
                                                 );
                                             }
                                         }
@@ -313,10 +324,7 @@ fn add_flows(
     let added_input = input.add_in_flow(used_flow);
 
     if !(added_source && added_input) {
-        println!(
-            "Error: added_source:{} added_inputs{}",
-            added_source, added_input
-        );
+        println!("Error: added_source:{added_source} added_inputs{added_input}");
     }
 }
 
@@ -330,16 +338,72 @@ impl eframe::App for FactoryManagementUtilsApp {
             self.error_window(ctx);
         }
 
-        #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.set_enabled(!error);
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
+                    if ui.button("Save").clicked() {
+                        let file = FileDialog::new()
+                            .add_filter("FactoryManagementUtils file", &["fmu"])
+                            .set_directory("/")
+                            .save_file()
+                            .unwrap();
+
+                        let file_write = File::create(file);
+
+                        let file_write = match file_write {
+                            Ok(f) => f,
+                            Err(e) => {
+                                self.commons.add_error(ShowError::new(e.to_string()));
+                                return;
+                            }
+                        };
+
+                        let r = self.serialize(&mut serde_json::Serializer::new(file_write));
+
+                        if let Err(e) = r {
+                            self.commons.add_error(ShowError {
+                                error: e.to_string(),
+                                context: "The save failed for the following reason".to_string(),
+                            })
+                        }
+                    }
+                    if ui.button("Load").clicked() {
+                        let file = FileDialog::new()
+                            .add_filter("FactoryManagementUtils file", &["fmu"])
+                            .set_directory("/")
+                            .pick_file()
+                            .unwrap();
+
+                        let file_read = File::open(file);
+
+                        let file_read = match file_read {
+                            Ok(f) => f,
+                            Err(e) => {
+                                self.commons.add_error(ShowError::new(e.to_string()));
+                                return;
+                            }
+                        };
+
+                        let mut deserializer = serde_json::Deserializer::from_reader(file_read);
+                        let r = Self::deserialize(&mut deserializer);
+
+                        match r {
+                            Ok(factory_app) => {
+                                self.reload(factory_app);
+                            }
+                            Err(e) => self.commons.add_error(ShowError {
+                                error: e.to_string(),
+                                context: "The save failed for the following reason".to_string(),
+                            }),
+                        }
+                    }
                     if ui.button("Reset").clicked() {
                         self.new_recipe_title.clear();
                         self.recipes.clear();
                     }
+                    #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
                     if ui.button("Quit").clicked() {
                         _frame.close();
                     }

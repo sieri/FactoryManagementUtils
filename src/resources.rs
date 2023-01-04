@@ -1,5 +1,5 @@
 use crate::utils::{FloatingNumber, Number};
-use egui::reset_button;
+
 use num_traits::NumCast;
 use std::cmp::Ordering;
 use std::error::Error;
@@ -335,7 +335,7 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
         if flow.resource != self.resource {
             return false;
         }
-        println!("RecipeInputResource.add_out_flow({})", flow);
+        println!("RecipeInputResource.add_out_flow({flow})");
         self.inputs.push(flow);
         true
     }
@@ -381,7 +381,7 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
         if flow.resource != self.resource {
             return false;
         }
-        println!("RecipeOutputResource.add_out_flow({})", flow);
+        println!("RecipeOutputResource.add_out_flow({flow})");
         self.outputs.push(flow);
         true
     }
