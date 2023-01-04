@@ -1,5 +1,7 @@
 use crate::utils::{FloatingNumber, Number};
+use egui::reset_button;
 use num_traits::NumCast;
+use std::cmp::Ordering;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 
@@ -78,12 +80,31 @@ impl Display for ResourceDefinition {
 }
 
 ///A flow of resource
-#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, PartialEq, Clone, serde::Deserialize, serde::Serialize)]
 pub(crate) struct ResourceFlow<T: Number, F: FloatingNumber> {
     pub resource: ResourceDefinition,
     pub amount_per_cycle: T,
     pub amount: F,
     pub rate: RatePer,
+}
+
+impl<T: Number, F: FloatingNumber> PartialOrd for ResourceFlow<T, F> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.resource != other.resource {
+            return None;
+        }
+
+        if self.rate > other.rate {
+            other
+                .convert_amount(self.rate)
+                .unwrap()
+                .partial_cmp(&self.amount)
+        } else {
+            self.convert_amount(other.rate)
+                .unwrap()
+                .partial_cmp(&other.amount)
+        }
+    }
 }
 
 impl<T: Number, F: FloatingNumber> Display for ResourceFlow<T, F> {

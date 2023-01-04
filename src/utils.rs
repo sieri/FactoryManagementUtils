@@ -21,8 +21,8 @@ impl<T> Number for T where
 }
 
 ///A trait for any float needed
-pub trait FloatingNumber: Number + Float + From<f32> {}
-impl<T> FloatingNumber for T where T: Number + Float + From<f32> + NumCast {}
+pub trait FloatingNumber: Number + Float + From<f32> + PartialOrd {}
+impl<T> FloatingNumber for T where T: Number + Float + From<f32> + NumCast + PartialOrd {}
 
 ///A multi purpose enum to differentiate input from outputs
 #[derive(serde::Deserialize, serde::Serialize)]
