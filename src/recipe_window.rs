@@ -31,6 +31,12 @@ pub trait RecipeWindowGUI {
     }
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Copy, Clone)]
+pub enum RecipeWindowType {
+    Basic,
+    Source,
+}
+
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 /// Descriptor for a Basic Recipe window, the recipe is directly calculated
@@ -39,13 +45,13 @@ pub struct BasicRecipeWindowDescriptor {
     title: String,
 
     ///unique id of the recipe
-    id: egui::Id,
+    pub(crate) id: egui::Id,
 
     ///list of inputs
-    inputs: Vec<ManageFlow<usize>>,
+    pub(crate) inputs: Vec<ManageFlow<usize>>,
 
     ///list of outputs
-    outputs: Vec<ManageFlow<usize>>,
+    pub(crate) outputs: Vec<ManageFlow<usize>>,
 
     ///power used per cycle
     power: Option<ManageFlow<usize>>,
@@ -225,6 +231,11 @@ impl BasicRecipeWindowDescriptor {
 
         let mut name = resource.clone().name;
 
+        let color = match resource_flow.is_enough() {
+            true => egui::Rgba::GREEN,
+            false => egui::Rgba::RED,
+        };
+
         let resource_flow = match dir {
             Io::Input => resource_flow.total_out(),
             Io::Output => resource_flow.total_in(),
@@ -232,6 +243,7 @@ impl BasicRecipeWindowDescriptor {
         let rate = resource_flow.rate;
         let mut amount = resource_flow.amount_per_cycle;
         let mut amount_per_time = resource_flow.amount;
+
         ui.horizontal(|ui| {
             match dir {
                 Io::Input => {
@@ -240,8 +252,12 @@ impl BasicRecipeWindowDescriptor {
                     self.window_coordinate.in_flow.push(btn_resp.rect);
 
                     if btn_resp.clicked() && commons.arrow_active {
-                        commons.clicked_place_arrow_info =
-                            Some((resource.clone(), self.id, resource_flow_index));
+                        commons.clicked_place_arrow_info = Some((
+                            resource.clone(),
+                            self.id,
+                            resource_flow_index,
+                            RecipeWindowType::Basic,
+                        ));
                     }
                 }
                 Io::Output => {}
@@ -257,12 +273,15 @@ impl BasicRecipeWindowDescriptor {
                 });
                 ui.horizontal(|ui| {
                     egui::DragValue::new(&mut amount_per_time).ui(ui);
-                    ui.label(match rate {
-                        RatePer::Tick => "/tick",
-                        RatePer::Second => "/s",
-                        RatePer::Minute => "/min ",
-                        RatePer::Hour => "/h",
-                    })
+                    ui.label(
+                        egui::RichText::new(match rate {
+                            RatePer::Tick => "/tick",
+                            RatePer::Second => "/s",
+                            RatePer::Minute => "/min ",
+                            RatePer::Hour => "/h",
+                        })
+                        .color(color),
+                    )
                 });
             });
 
@@ -279,6 +298,7 @@ impl BasicRecipeWindowDescriptor {
                             self.id,
                             ui.layer_id(),
                             resource_flow_index,
+                            RecipeWindowType::Basic,
                         ));
                     }
                 }
@@ -383,13 +403,13 @@ fn text_edit(ui: &mut egui::Ui, text: &mut String) {
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct ResourceSource {
     ///unique id of the resource
-    id: egui::Id,
+    pub(crate) id: egui::Id,
 
     ///output
     pub(crate) output: RecipeOutputResource<usize>,
 
     ///limited output
-    limited_output: bool,
+    pub(crate) limited_output: bool,
 
     ///limit amount
     limit_amount: usize,
@@ -432,8 +452,13 @@ impl RecipeWindowGUI for ResourceSource {
                     self.window_coordinate.out_flow.push(btn_resp.rect);
 
                     if btn_resp.clicked() {
-                        commons.clicked_start_arrow_info =
-                            Some((resource.clone(), self.id, ui.layer_id(), 0));
+                        commons.clicked_start_arrow_info = Some((
+                            resource.clone(),
+                            self.id,
+                            ui.layer_id(),
+                            0,
+                            RecipeWindowType::Source,
+                        ));
                     }
                 });
             });
@@ -579,7 +604,9 @@ pub struct ArrowFlow {
     pub(crate) resource: ResourceDefinition,
 
     pub(crate) start_flow_window: egui::Id,
+    pub(crate) start_flow_type: RecipeWindowType,
     pub(crate) end_flow_window: Option<egui::Id>,
+    pub(crate) end_flow_type: Option<RecipeWindowType>,
     pub(crate) start_flow_index: usize,
     pub(crate) end_flow_index: usize,
 
@@ -658,6 +685,7 @@ impl ArrowFlow {
     pub(crate) fn new(
         resource: ResourceDefinition,
         start_flow: egui::Id,
+        start_flow_type: RecipeWindowType,
         layer_id: egui::LayerId,
         flow_index: usize,
     ) -> Self {
@@ -666,7 +694,9 @@ impl ArrowFlow {
             state: ArrowUsageState::Active,
             resource,
             start_flow_window: start_flow,
+            start_flow_type,
             end_flow_window: None,
+            end_flow_type: None,
             start_flow_index: flow_index,
             end_flow_index: 0,
             layer_id,
@@ -677,6 +707,7 @@ impl ArrowFlow {
         &mut self,
         resource: ResourceDefinition,
         end_flow: egui::Id,
+        end_flow_type: RecipeWindowType,
         flow_index: usize,
     ) -> Result<(), FlowError> {
         if resource != self.resource {
@@ -684,6 +715,7 @@ impl ArrowFlow {
         }
 
         self.end_flow_window = Some(end_flow);
+        self.end_flow_type = Some(end_flow_type);
         self.end_flow_index = flow_index;
         self.state = ArrowUsageState::Anchored;
 

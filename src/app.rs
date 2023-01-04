@@ -1,10 +1,13 @@
 use crate::recipe_window::{
-    ArrowFlow, BasicRecipeWindowDescriptor, RecipeWindowGUI, ResourceSource,
+    ArrowFlow, BasicRecipeWindowDescriptor, RecipeWindowGUI, RecipeWindowType, ResourceSource,
 };
-use crate::resources::{ManageResourceFlow, ResourceDefinition};
+use crate::resources::{
+    ManageFlow, ManageResourceFlow, RecipeInputResource, RecipeOutputResource, ResourceDefinition,
+    ResourceFlow,
+};
 use copypasta::{ClipboardContext, ClipboardProvider};
 use egui::Widget;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, LinkedList, VecDeque};
 use std::time::{Duration, Instant};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -22,8 +25,8 @@ pub struct FactoryManagementUtilsApp {
     #[serde(skip)]
     show_tooltips: HashMap<egui::Id, (String, Instant)>,
 
-    pub active_arrow: Option<ArrowFlow>,
-    pub arrows: Vec<ArrowFlow>,
+    active_arrow: Option<ArrowFlow>,
+    arrows: Vec<ArrowFlow>,
 }
 
 #[derive(Clone)]
@@ -51,8 +54,14 @@ pub struct CommonManager {
 
     pub arrow_active: bool,
 
-    pub clicked_start_arrow_info: Option<(ResourceDefinition, egui::Id, egui::LayerId, usize)>,
-    pub clicked_place_arrow_info: Option<(ResourceDefinition, egui::Id, usize)>,
+    pub clicked_start_arrow_info: Option<(
+        ResourceDefinition,
+        egui::Id,
+        egui::LayerId,
+        usize,
+        RecipeWindowType,
+    )>,
+    pub clicked_place_arrow_info: Option<(ResourceDefinition, egui::Id, usize, RecipeWindowType)>,
 
     // List of error popups to keep
     show_errors: VecDeque<ShowError>,
@@ -66,6 +75,23 @@ impl CommonManager {
     pub(crate) fn add_error(&mut self, err: ShowError) {
         self.show_errors.push_front(err);
     }
+}
+
+#[derive(Copy, Clone)]
+enum FlowCalculatorType {
+    Helper(FlowCalculatorHelper),
+    EndRecipe(usize),
+}
+
+#[derive(Copy, Clone)]
+struct FlowCalculatorHelper {
+    source_window_index: usize,
+    source_flow_index: usize,
+
+    end_window_index: usize,
+    end_flow_index: usize,
+
+    source_type: RecipeWindowType,
 }
 
 impl Default for FactoryManagementUtilsApp {
@@ -99,10 +125,198 @@ impl FactoryManagementUtilsApp {
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let mut loaded: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            loaded.calculate();
+            return loaded;
         }
 
         Default::default()
+    }
+
+    fn calculate(&mut self) {
+        println!("==================Calculate==================");
+
+        let mut sources_helpers = LinkedList::new();
+        let mut recipes_helpers = vec![(0, LinkedList::new()); self.recipes.len()];
+        //reset flows
+        for source in self.sources.iter_mut() {
+            source.output.reset();
+        }
+
+        for recipe in self.recipes.iter_mut() {
+            for input in recipe.inputs.iter_mut() {
+                match input {
+                    ManageFlow::RecipeInput(r) => r.reset(),
+                    ManageFlow::RecipeOutput(_) => {}
+                }
+            }
+            for output in recipe.outputs.iter_mut() {
+                match output {
+                    ManageFlow::RecipeInput(_) => {}
+                    ManageFlow::RecipeOutput(r) => r.reset(),
+                }
+            }
+        }
+
+        //build relationships from arrows
+        for arrow in self.arrows.iter() {
+            let start_id = arrow.start_flow_window;
+            let source_flow_index = arrow.start_flow_index;
+            let source_type = arrow.start_flow_type;
+            let source_window_index = match source_type {
+                RecipeWindowType::Basic => {
+                    self.recipes.iter().position(|recipe| recipe.id == start_id)
+                }
+                RecipeWindowType::Source => {
+                    self.sources.iter().position(|recipe| recipe.id == start_id)
+                }
+            };
+
+            let end_id = arrow.end_flow_window.unwrap_or(egui::Id::new("Invalid ID"));
+            let end_flow_index = arrow.end_flow_index;
+            let end_window_index = match arrow.end_flow_type.unwrap_or(RecipeWindowType::Source) {
+                RecipeWindowType::Basic => {
+                    self.recipes.iter().position(|recipe| recipe.id == end_id)
+                }
+                RecipeWindowType::Source => None,
+            };
+
+            if source_window_index.is_some() && end_window_index.is_some() {
+                let source_window_index = source_window_index.unwrap();
+                let end_window_index = end_window_index.unwrap();
+
+                let helper = FlowCalculatorHelper {
+                    source_window_index,
+                    source_flow_index,
+                    end_window_index,
+                    end_flow_index,
+
+                    source_type,
+                };
+
+                match source_type {
+                    RecipeWindowType::Basic => {
+                        let source_order = recipes_helpers[source_window_index].0;
+                        let mut end_order = recipes_helpers[end_window_index].0;
+
+                        if source_order >= end_order {
+                            end_order = source_order + 1usize;
+                        }
+
+                        recipes_helpers[end_window_index]
+                            .1
+                            .push_back(FlowCalculatorType::Helper(helper));
+                        recipes_helpers[end_window_index].0 = end_order;
+                    }
+                    RecipeWindowType::Source => {
+                        sources_helpers.push_back(FlowCalculatorType::Helper(helper));
+                    }
+                }
+            }
+        }
+        let mut calculate_helper = sources_helpers;
+
+        recipes_helpers.sort_by(|helper1, helper2| helper1.0.partial_cmp(&helper2.0).unwrap());
+
+        for (order, mut list) in recipes_helpers {
+            println!("{}", order);
+            if list.front().is_some() {
+                let index = match list.front().unwrap() {
+                    FlowCalculatorType::Helper(h) => h.end_window_index,
+                    FlowCalculatorType::EndRecipe(i) => *i,
+                };
+                list.push_back(FlowCalculatorType::EndRecipe(index));
+                calculate_helper.append(&mut list);
+            }
+        }
+
+        //calculate
+        for calculate_helper in calculate_helper.iter_mut() {
+            match calculate_helper {
+                FlowCalculatorType::Helper(h) => match h.source_type {
+                    RecipeWindowType::Basic => {
+                        let end_flow =
+                            self.recipes[h.end_window_index].inputs[h.end_flow_index].clone();
+                        let source = &mut self.recipes[h.source_window_index];
+                        let source_flow = &mut source.outputs[h.source_flow_index];
+                        match source_flow {
+                            ManageFlow::RecipeInput(_) => {
+                                println!("Resource source wrong")
+                            }
+                            ManageFlow::RecipeOutput(o) => match end_flow {
+                                ManageFlow::RecipeInput(_) => {
+                                    let used_flow = o.created.clone();
+                                    let added_source = o.add_out_flow(used_flow.clone());
+
+                                    let end = &mut self.recipes[h.end_window_index];
+                                    let end_flow = &mut end.inputs[h.end_flow_index];
+                                    match end_flow {
+                                        ManageFlow::RecipeInput(i) => {
+                                            let added_input = i.add_in_flow(used_flow);
+
+                                            if !(added_source && added_input) {
+                                                println!(
+                                                    "Error: added_source:{} added_inputs{}",
+                                                    added_source, added_input
+                                                );
+                                            }
+                                        }
+                                        ManageFlow::RecipeOutput(_) => {}
+                                    }
+                                }
+                                ManageFlow::RecipeOutput(_) => {
+                                    println!("End flow is wrong")
+                                }
+                            },
+                        }
+                    }
+                    RecipeWindowType::Source => {
+                        let source = &mut self.sources[h.source_window_index];
+                        let end = &mut self.recipes[h.end_window_index];
+                        let end_flow = &mut end.inputs[h.end_flow_index];
+                        if source.limited_output {
+                            match end_flow {
+                                ManageFlow::RecipeInput(input) => {
+                                    let used_flow = source.output.created.clone();
+                                    add_flows(&mut source.output, input, used_flow);
+                                }
+                                ManageFlow::RecipeOutput(_) => {
+                                    println!("Shouldn't happen")
+                                }
+                            }
+                        } else {
+                            match end_flow {
+                                ManageFlow::RecipeInput(input) => {
+                                    let used_flow = input.needed.clone();
+
+                                    add_flows(&mut source.output, input, used_flow);
+                                }
+                                ManageFlow::RecipeOutput(_) => {
+                                    println!("Should not happen")
+                                }
+                            }
+                        }
+                    }
+                },
+                FlowCalculatorType::EndRecipe(_) => {}
+            }
+        }
+    }
+}
+
+fn add_flows(
+    source: &mut RecipeOutputResource<usize>,
+    input: &mut RecipeInputResource<usize>,
+    used_flow: ResourceFlow<usize, f32>,
+) {
+    let added_source = source.add_out_flow(used_flow.clone());
+    let added_input = input.add_in_flow(used_flow);
+
+    if !(added_source && added_input) {
+        println!(
+            "Error: added_source:{} added_inputs{}",
+            added_source, added_input
+        );
     }
 }
 
@@ -179,31 +393,7 @@ impl eframe::App for FactoryManagementUtilsApp {
                 }
             });
 
-            if cfg!(debug_assertions) {
-                ui.separator();
-                ui.label("DEBUG");
-                let mut a = self.commons.arrow_active;
-                ui.checkbox(&mut a, "Arrow active");
-                let mut start_some = self.commons.clicked_start_arrow_info.is_some();
-                let mut place_some = self.commons.clicked_place_arrow_info.is_some();
-                ui.checkbox(&mut start_some, "clicked start is some");
-                ui.checkbox(&mut place_some, "clicked place is some");
-                let mut arrow_count = self.arrows.len();
-                ui.horizontal(|ui| {
-                    ui.label("Arrow");
-                    egui::DragValue::new(&mut arrow_count).ui(ui);
-                });
-                let mut recipe_count = self.recipes.len();
-                ui.horizontal(|ui| {
-                    ui.label("Recipe");
-                    egui::DragValue::new(&mut recipe_count).ui(ui);
-                });
-                let mut sources_count = self.sources.len();
-                ui.horizontal(|ui| {
-                    ui.label("Source");
-                    egui::DragValue::new(&mut sources_count).ui(ui);
-                });
-            }
+            self.debug(ui);
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
@@ -246,11 +436,12 @@ impl eframe::App for FactoryManagementUtilsApp {
 
             if active {
                 if self.commons.clicked_place_arrow_info.is_some() {
-                    let (resource, id, flow_index) =
+                    let (resource, id, flow_index, recipe_type) =
                         self.commons.clicked_place_arrow_info.as_ref().unwrap();
                     let err = self.active_arrow.as_mut().unwrap().put_end(
                         resource.clone(),
                         *id,
+                        *recipe_type,
                         *flow_index,
                     );
 
@@ -273,9 +464,15 @@ impl eframe::App for FactoryManagementUtilsApp {
                 self.commons.arrow_active = false;
             }
         } else if self.commons.clicked_start_arrow_info.is_some() {
-            let (resource, id, layer, flow_index) =
+            let (resource, id, layer, flow_index, recipe_type) =
                 self.commons.clicked_start_arrow_info.as_ref().unwrap();
-            self.active_arrow = Some(ArrowFlow::new(resource.clone(), *id, *layer, *flow_index));
+            self.active_arrow = Some(ArrowFlow::new(
+                resource.clone(),
+                *id,
+                *recipe_type,
+                *layer,
+                *flow_index,
+            ));
             self.commons.clicked_start_arrow_info = None;
         }
     }
@@ -287,6 +484,41 @@ impl eframe::App for FactoryManagementUtilsApp {
 }
 
 impl FactoryManagementUtilsApp {
+    ///Show a debug area
+    fn debug(&mut self, ui: &mut egui::Ui) {
+        if cfg!(debug_assertions) {
+            ui.separator();
+
+            ui.collapsing("DEBUG", |ui| {
+                let mut a = self.commons.arrow_active;
+                ui.checkbox(&mut a, "Arrow active");
+                let mut start_some = self.commons.clicked_start_arrow_info.is_some();
+                let mut place_some = self.commons.clicked_place_arrow_info.is_some();
+                ui.checkbox(&mut start_some, "clicked start is some");
+                ui.checkbox(&mut place_some, "clicked place is some");
+                let mut arrow_count = self.arrows.len();
+                ui.horizontal(|ui| {
+                    ui.label("Arrow");
+                    egui::DragValue::new(&mut arrow_count).ui(ui);
+                });
+                let mut recipe_count = self.recipes.len();
+                ui.horizontal(|ui| {
+                    ui.label("Recipe");
+                    egui::DragValue::new(&mut recipe_count).ui(ui);
+                });
+                let mut sources_count = self.sources.len();
+                ui.horizontal(|ui| {
+                    ui.label("Source");
+                    egui::DragValue::new(&mut sources_count).ui(ui);
+                });
+
+                if ui.button("Calculate").clicked() {
+                    self.calculate();
+                }
+            });
+        }
+    }
+
     /// Show error window.
     fn error_window(&mut self, ctx: &egui::Context) -> bool {
         let err = self.commons.show_errors.pop_back();

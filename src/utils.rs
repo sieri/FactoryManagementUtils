@@ -1,13 +1,22 @@
 use num_traits::{Float, Num, NumCast, One, ToPrimitive};
+use std::fmt::Display;
 use std::ops::AddAssign;
 
 ///A trait for any number needed
 pub trait Number:
-    Num + PartialOrd + Copy + AddAssign + One + eframe::emath::Numeric + ToPrimitive
+    Num + PartialOrd + Copy + AddAssign + One + eframe::emath::Numeric + ToPrimitive + Display
 {
 }
 impl<T> Number for T where
-    T: Num + PartialOrd + Copy + AddAssign + One + eframe::emath::Numeric + NumCast + ToPrimitive
+    T: Num
+        + PartialOrd
+        + Copy
+        + AddAssign
+        + One
+        + eframe::emath::Numeric
+        + NumCast
+        + ToPrimitive
+        + Display
 {
 }
 

@@ -12,7 +12,7 @@ const MINUTES_TO_HOURS: f32 = 60.0;
 /// * LITER volume measurement
 /// * KG weight measurement
 #[allow(dead_code)]
-#[derive(PartialEq, PartialOrd, Copy, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, PartialEq, PartialOrd, Copy, Clone, serde::Deserialize, serde::Serialize)]
 pub enum Unit {
     Piece,
     Liter,
@@ -61,7 +61,7 @@ impl Display for RatePer {
 }
 
 ///A type of a resource
-#[derive(PartialEq, PartialOrd, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ResourceDefinition {
     ///The name of the resource, should be unique
     pub name: String,
@@ -70,13 +70,31 @@ pub struct ResourceDefinition {
     pub unit: Unit,
 }
 
+impl Display for ResourceDefinition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Ressource(name={})", self.name)?;
+        Ok(())
+    }
+}
+
 ///A flow of resource
-#[derive(PartialEq, PartialOrd, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Deserialize, serde::Serialize)]
 pub(crate) struct ResourceFlow<T: Number, F: FloatingNumber> {
     pub resource: ResourceDefinition,
     pub amount_per_cycle: T,
     pub amount: F,
     pub rate: RatePer,
+}
+
+impl<T: Number, F: FloatingNumber> Display for ResourceFlow<T, F> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ResourceFlow(resource={}, amount_per_cycle={}, amount={}, rate={})",
+            self.resource, self.amount_per_cycle, self.amount, self.rate
+        )?;
+        Ok(())
+    }
 }
 
 impl<T: Number, F: FloatingNumber> ResourceFlow<T, F> {
@@ -236,15 +254,17 @@ pub(crate) trait ManageResourceFlow<T: Number> {
     fn total_out(&self) -> ResourceFlow<T, f32>;
 
     ///indicate the flow is enough
-    fn is_enough(&self) -> bool {
-        self.total_out() < self.total_in()
-    }
+    fn is_enough(&self) -> bool;
 
+    ///the ``ResourceDefinition`` representing the flow
     fn resource(&self) -> ResourceDefinition;
+
+    ///reset the flows
+    fn reset(&mut self);
 }
 
 ///an input resource for a recipe
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub(crate) struct RecipeInputResource<T: Number> {
     ///the type of resource this considers
     resource: ResourceDefinition,
@@ -257,7 +277,7 @@ pub(crate) struct RecipeInputResource<T: Number> {
 }
 
 ///an input resource for a recipe
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub(crate) struct RecipeOutputResource<T: Number> {
     ///the type of resource this considers
     resource: ResourceDefinition,
@@ -294,7 +314,7 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
         if flow.resource != self.resource {
             return false;
         }
-
+        println!("RecipeInputResource.add_out_flow({})", flow);
         self.inputs.push(flow);
         true
     }
@@ -318,8 +338,16 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
         self.needed.clone()
     }
 
+    fn is_enough(&self) -> bool {
+        self.total_in() >= self.needed
+    }
+
     fn resource(&self) -> ResourceDefinition {
         self.resource.clone()
+    }
+
+    fn reset(&mut self) {
+        self.inputs.clear()
     }
 }
 
@@ -332,7 +360,7 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
         if flow.resource != self.resource {
             return false;
         }
-
+        println!("RecipeOutputResource.add_out_flow({})", flow);
         self.outputs.push(flow);
         true
     }
@@ -352,12 +380,26 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
         flow
     }
 
+    fn is_enough(&self) -> bool {
+        // println!(
+        //     "Is enough?\n name {} \n total_out {} \n created {}",
+        //     self.resource.name,
+        //     self.total_out(),
+        //     self.created
+        // );
+        self.total_out() <= self.created
+    }
+
     fn resource(&self) -> ResourceDefinition {
         self.resource.clone()
     }
+
+    fn reset(&mut self) {
+        self.outputs.clear();
+    }
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub(crate) enum ManageFlow<T: Number> {
     RecipeInput(RecipeInputResource<T>),
     RecipeOutput(RecipeOutputResource<T>),
