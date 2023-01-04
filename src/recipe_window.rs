@@ -35,6 +35,7 @@ pub trait RecipeWindowGUI {
 pub enum RecipeWindowType {
     Basic,
     Source,
+    Sink,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -253,7 +254,7 @@ impl BasicRecipeWindowDescriptor {
 
                     if btn_resp.clicked() && commons.arrow_active {
                         commons.clicked_place_arrow_info = Some((
-                            resource.clone(),
+                            Some(resource.clone()),
                             self.id,
                             resource_flow_index,
                             RecipeWindowType::Basic,
@@ -498,6 +499,87 @@ impl ResourceSource {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
+pub(crate) struct ResourceSink {
+    ///unique id of the resource
+    pub(crate) id: egui::Id,
+
+    ///output
+    pub(crate) sink: Option<RecipeInputResource<usize>>,
+
+    #[serde(skip)]
+    window_coordinate: CoordinatesInfo,
+}
+
+impl ResourceSink {
+    pub(crate) fn new() -> Self {
+        Self {
+            id: Self::gen_id("ResourceSink".to_string()),
+            sink: None,
+            window_coordinate: Default::default(),
+        }
+    }
+}
+
+impl RecipeWindowGUI for ResourceSink {
+    fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
+        self.window_coordinate.in_flow.clear();
+        self.window_coordinate.out_flow.clear();
+
+        let mut open = true;
+
+        let response = egui::Window::new("Resource sink")
+            .id(self.id)
+            .enabled(enabled)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    let btn_resp = ui.button("⭕");
+
+                    self.window_coordinate.in_flow.push(btn_resp.rect);
+
+                    if btn_resp.clicked() && commons.arrow_active {
+                        commons.clicked_place_arrow_info = Some((
+                            match &self.sink {
+                                None => None,
+                                Some(sink) => Some(sink.resource().clone()),
+                            },
+                            self.id,
+                            0,
+                            RecipeWindowType::Sink,
+                        ));
+                    }
+
+                    if let Some(sink) = &self.sink {
+                        let mut resource_name = sink.resource().name;
+                        text_edit(ui, &mut resource_name);
+                        let mut amount_per_time = sink.total_in().amount;
+                        let mut rate = sink.total_in().rate;
+                        egui::DragValue::new(&mut amount_per_time).ui(ui);
+                        ui.label(egui::RichText::new(match rate {
+                            RatePer::Tick => "/tick",
+                            RatePer::Second => "/s",
+                            RatePer::Minute => "/min ",
+                            RatePer::Hour => "/h",
+                        }));
+                    }
+                });
+            });
+        let inner_response = response.unwrap();
+        self.window_coordinate.window = inner_response.response.rect;
+
+        if open {
+            commons
+                .window_coordinates
+                .insert(self.id, self.window_coordinate.clone());
+        } else {
+            commons.window_coordinates.remove(&self.id);
+        }
+
+        open
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
 struct ResourceAddingWindow<T> {
     ///Title
     pub(crate) title: String,
@@ -664,8 +746,8 @@ impl RecipeWindowGUI for ArrowFlow {
         };
 
         let color = match enabled {
-            true => egui::Color32::RED,
-            false => egui::Color32::GRAY,
+            true => egui::Color32::GRAY,
+            false => egui::Color32::BLACK,
         };
 
         match self.state {
@@ -705,13 +787,15 @@ impl ArrowFlow {
 
     pub(crate) fn put_end(
         &mut self,
-        resource: ResourceDefinition,
+        resource: Option<ResourceDefinition>,
         end_flow: egui::Id,
         end_flow_type: RecipeWindowType,
         flow_index: usize,
     ) -> Result<(), FlowError> {
-        if resource != self.resource {
-            return Err(FlowError::new(FlowErrorType::WrongResourceType));
+        if let Some(resource) = resource {
+            if resource != self.resource {
+                return Err(FlowError::new(FlowErrorType::WrongResourceType));
+            }
         }
 
         self.end_flow_window = Some(end_flow);

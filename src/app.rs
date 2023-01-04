@@ -1,5 +1,6 @@
 use crate::recipe_window::{
-    ArrowFlow, BasicRecipeWindowDescriptor, RecipeWindowGUI, RecipeWindowType, ResourceSource,
+    ArrowFlow, BasicRecipeWindowDescriptor, RecipeWindowGUI, RecipeWindowType, ResourceSink,
+    ResourceSource,
 };
 use crate::resources::{
     ManageFlow, ManageResourceFlow, RecipeInputResource, RecipeOutputResource, ResourceDefinition,
@@ -21,6 +22,7 @@ pub struct FactoryManagementUtilsApp {
     new_resource_source: String,
     recipes: Vec<BasicRecipeWindowDescriptor>,
     sources: Vec<ResourceSource>,
+    sinks: Vec<ResourceSink>,
     #[serde(skip)]
     commons: CommonManager,
 
@@ -64,7 +66,12 @@ pub struct CommonManager {
         usize,
         RecipeWindowType,
     )>,
-    pub clicked_place_arrow_info: Option<(ResourceDefinition, egui::Id, usize, RecipeWindowType)>,
+    pub clicked_place_arrow_info: Option<(
+        Option<ResourceDefinition>,
+        egui::Id,
+        usize,
+        RecipeWindowType,
+    )>,
 
     // List of error popups to keep
     show_errors: VecDeque<ShowError>,
@@ -95,6 +102,7 @@ struct FlowCalculatorHelper {
     end_flow_index: usize,
 
     source_type: RecipeWindowType,
+    end_type: RecipeWindowType,
 }
 
 impl Default for FactoryManagementUtilsApp {
@@ -105,6 +113,7 @@ impl Default for FactoryManagementUtilsApp {
             new_resource_source: "".to_string(),
             recipes: vec![],
             sources: vec![],
+            sinks: vec![],
             commons: CommonManager {
                 window_coordinates: Default::default(),
                 arrow_active: false,
@@ -142,6 +151,7 @@ impl FactoryManagementUtilsApp {
         self.new_resource_source = other.new_resource_source;
         self.recipes = other.recipes;
         self.sources = other.sources;
+        self.sinks = other.sinks;
         self.active_arrow = other.active_arrow;
         self.arrows = other.arrows;
     }
@@ -150,6 +160,7 @@ impl FactoryManagementUtilsApp {
         println!("==================Calculate==================");
 
         let mut sources_helpers = LinkedList::new();
+        let mut sinks_helpers = LinkedList::new();
         let mut recipes_helpers = vec![(0, LinkedList::new()); self.recipes.len()];
         //reset flows
         for source in self.sources.iter_mut() {
@@ -171,11 +182,18 @@ impl FactoryManagementUtilsApp {
             }
         }
 
+        for sink in self.sinks.iter_mut() {
+            if let Some(f) = sink.sink.as_mut() {
+                f.reset();
+            }
+        }
+
         //build relationships from arrows
         for arrow in self.arrows.iter() {
             let start_id = arrow.start_flow_window;
             let source_flow_index = arrow.start_flow_index;
             let source_type = arrow.start_flow_type;
+
             let source_window_index = match source_type {
                 RecipeWindowType::Basic => {
                     self.recipes.iter().position(|recipe| recipe.id == start_id)
@@ -183,15 +201,21 @@ impl FactoryManagementUtilsApp {
                 RecipeWindowType::Source => {
                     self.sources.iter().position(|recipe| recipe.id == start_id)
                 }
+                RecipeWindowType::Sink => {
+                    println!("incorrect source type");
+                    None
+                }
             };
 
             let end_id = arrow.end_flow_window.unwrap_or(egui::Id::new("Invalid ID"));
             let end_flow_index = arrow.end_flow_index;
-            let end_window_index = match arrow.end_flow_type.unwrap_or(RecipeWindowType::Source) {
+            let end_type = arrow.end_flow_type.unwrap_or(RecipeWindowType::Source);
+            let end_window_index = match end_type {
                 RecipeWindowType::Basic => {
                     self.recipes.iter().position(|recipe| recipe.id == end_id)
                 }
                 RecipeWindowType::Source => None,
+                RecipeWindowType::Sink => self.sinks.iter().position(|sink| sink.id == end_id),
             };
 
             if let Some(source_window_index) = source_window_index {
@@ -203,6 +227,7 @@ impl FactoryManagementUtilsApp {
                         end_flow_index,
 
                         source_type,
+                        end_type,
                     };
 
                     match source_type {
@@ -221,6 +246,9 @@ impl FactoryManagementUtilsApp {
                         }
                         RecipeWindowType::Source => {
                             sources_helpers.push_back(FlowCalculatorType::Helper(helper));
+                        }
+                        RecipeWindowType::Sink => {
+                            sinks_helpers.push_back(FlowCalculatorType::Helper(helper))
                         }
                     }
                 }
@@ -242,73 +270,95 @@ impl FactoryManagementUtilsApp {
             }
         }
 
+        calculate_helper.append(&mut sinks_helpers);
+
         //calculate
         for calculate_helper in calculate_helper.iter_mut() {
             match calculate_helper {
                 FlowCalculatorType::Helper(h) => match h.source_type {
                     RecipeWindowType::Basic => {
-                        let end_flow =
-                            self.recipes[h.end_window_index].inputs[h.end_flow_index].clone();
                         let source = &mut self.recipes[h.source_window_index];
                         let source_flow = &mut source.outputs[h.source_flow_index];
                         match source_flow {
                             ManageFlow::RecipeInput(_) => {
                                 println!("Resource source wrong")
                             }
-                            ManageFlow::RecipeOutput(o) => match end_flow {
-                                ManageFlow::RecipeInput(_) => {
-                                    let used_flow = o.created.clone();
-                                    let added_source = o.add_out_flow(used_flow.clone());
+                            ManageFlow::RecipeOutput(o) => {
+                                let used_flow = o.created.clone();
+                                let added_source = o.add_out_flow(used_flow.clone());
 
-                                    let end = &mut self.recipes[h.end_window_index];
-                                    let end_flow = &mut end.inputs[h.end_flow_index];
-                                    match end_flow {
-                                        ManageFlow::RecipeInput(i) => {
-                                            let added_input = i.add_in_flow(used_flow);
-
-                                            if !(added_source && added_input) {
-                                                println!(
-                                                    "Error: added_source:{added_source} added_inputs{added_input}"
-                                                );
+                                let end_flow = match h.end_type {
+                                    RecipeWindowType::Basic => {
+                                        let end = &mut self.recipes[h.end_window_index];
+                                        let f = match &mut end.inputs[h.end_flow_index] {
+                                            ManageFlow::RecipeInput(r) => r,
+                                            ManageFlow::RecipeOutput(_) => {
+                                                panic!("Never happens")
                                             }
+                                        };
+                                        Some(f)
+                                    }
+                                    RecipeWindowType::Source => None,
+                                    RecipeWindowType::Sink => {
+                                        let end = &mut self.sinks[h.end_window_index];
+                                        let f = end.sink.as_mut();
+                                        match f {
+                                            None => {
+                                                let f = RecipeInputResource::new(
+                                                    used_flow.resource.clone(),
+                                                    used_flow.clone(),
+                                                );
+                                                end.sink = Some(f);
+                                                let f = end.sink.as_mut().unwrap();
+                                                Some(f)
+                                            }
+                                            Some(f) => Some(f),
                                         }
-                                        ManageFlow::RecipeOutput(_) => {}
                                     }
                                 }
-                                ManageFlow::RecipeOutput(_) => {
-                                    println!("End flow is wrong")
+                                .unwrap();
+
+                                let added_input = end_flow.add_in_flow(used_flow);
+
+                                if !(added_source && added_input) {
+                                    println!("Error: added_source:{added_source} added_inputs{added_input}");
                                 }
-                            },
+                            }
                         }
                     }
                     RecipeWindowType::Source => {
                         let source = &mut self.sources[h.source_window_index];
-                        let end = &mut self.recipes[h.end_window_index];
-                        let end_flow = &mut end.inputs[h.end_flow_index];
-                        if source.limited_output {
-                            match end_flow {
-                                ManageFlow::RecipeInput(input) => {
-                                    let used_flow = source.output.created.clone();
-                                    add_flows(&mut source.output, input, used_flow);
-                                }
-                                ManageFlow::RecipeOutput(_) => {
-                                    println!("Shouldn't happen")
-                                }
+                        let end_flow = match h.end_type {
+                            RecipeWindowType::Basic => {
+                                let end = &mut self.recipes[h.end_window_index];
+                                let f = match &mut end.inputs[h.end_flow_index] {
+                                    ManageFlow::RecipeInput(r) => r,
+                                    ManageFlow::RecipeOutput(_) => {
+                                        panic!("Never happens")
+                                    }
+                                };
+                                Some(f)
                             }
-                        } else {
-                            match end_flow {
-                                ManageFlow::RecipeInput(input) => {
-                                    let used_flow = input.needed.clone();
-
-                                    add_flows(&mut source.output, input, used_flow);
-                                }
-                                ManageFlow::RecipeOutput(_) => {
-                                    println!("Should not happen")
-                                }
+                            RecipeWindowType::Source => None,
+                            RecipeWindowType::Sink => {
+                                let end = &mut self.sinks[h.end_window_index];
+                                let f = end.sink.as_mut().unwrap();
+                                Some(f)
+                            }
+                        };
+                        if let Some(end_flow) = end_flow {
+                            if source.limited_output {
+                                let used_flow = source.output.created.clone();
+                                add_flows(&mut source.output, end_flow, used_flow);
+                            } else {
+                                let used_flow = end_flow.needed.clone();
+                                add_flows(&mut source.output, end_flow, used_flow);
                             }
                         }
                     }
+                    RecipeWindowType::Sink => {}
                 },
+
                 FlowCalculatorType::EndRecipe(_) => {}
             }
         }
@@ -443,6 +493,10 @@ impl eframe::App for FactoryManagementUtilsApp {
                 let source = ResourceSource::new(self.new_resource_source.clone());
                 self.sources.push(source);
             }
+            if ui.button("Create sink").clicked() {
+                let sink = ResourceSink::new();
+                self.sinks.push(sink);
+            }
 
             ui.separator();
             ui.collapsing("Resource usage", |ui| {
@@ -454,6 +508,19 @@ impl eframe::App for FactoryManagementUtilsApp {
                             flow.resource.name, flow.amount, flow.rate
                         ));
                     });
+                }
+            });
+            ui.collapsing("Resource generated", |ui| {
+                for sink in self.sinks.iter() {
+                    if let Some(sink) = sink.sink.as_ref() {
+                        let flow = sink.total_in();
+                        ui.horizontal(|ui| {
+                            ui.label(format!(
+                                "{}: {} {}",
+                                flow.resource.name, flow.amount, flow.rate
+                            ));
+                        });
+                    }
                 }
             });
 
@@ -487,6 +554,8 @@ impl eframe::App for FactoryManagementUtilsApp {
                 .retain_mut(|recipe| recipe.show(&mut self.commons, ctx, !error));
             self.sources
                 .retain_mut(|source| source.show(&mut self.commons, ctx, !error));
+            self.sinks
+                .retain_mut(|sink| sink.show(&mut self.commons, ctx, !error));
         });
 
         self.arrows
@@ -574,6 +643,11 @@ impl FactoryManagementUtilsApp {
                 ui.horizontal(|ui| {
                     ui.label("Source");
                     egui::DragValue::new(&mut sources_count).ui(ui);
+                });
+                let mut sinks_count = self.sinks.len();
+                ui.horizontal(|ui| {
+                    ui.label("Sink");
+                    egui::DragValue::new(&mut sinks_count).ui(ui);
                 });
 
                 if ui.button("Calculate").clicked() {
