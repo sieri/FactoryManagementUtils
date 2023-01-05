@@ -95,7 +95,7 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
                     });
                     ui.separator();
                     self.show_power(ui, enabled);
-                    let result = self.show_time_settings(ui, enabled);
+                    let result = self.show_time_settings(commons, ui, enabled);
                     if result.is_err() {
                         commons.add_error(ShowError::new(format!("{}", result.err().unwrap())));
                     }
@@ -213,6 +213,7 @@ impl BasicRecipeWindowDescriptor {
         ui: &mut egui::Ui,
         _enabled: bool,
     ) {
+        let mut changed = false;
         //get variables
         let resource_flow: &dyn ManageResourceFlow<usize> = match dir {
             Io::Input => match &self.inputs[resource_flow_index] {
@@ -268,12 +269,15 @@ impl BasicRecipeWindowDescriptor {
             ui.label(":");
 
             ui.vertical(|ui| {
+                changed |= ui
+                    .horizontal(|ui| {
+                        egui::DragValue::new(&mut amount).ui(ui);
+                        ui.label("per cycle");
+                    })
+                    .response
+                    .changed();
                 ui.horizontal(|ui| {
-                    egui::DragValue::new(&mut amount).ui(ui);
-                    ui.label("per cycle");
-                });
-                ui.horizontal(|ui| {
-                    egui::DragValue::new(&mut amount_per_time).ui(ui);
+                    changed |= egui::DragValue::new(&mut amount_per_time).ui(ui).changed();
                     ui.label(
                         egui::RichText::new(match rate {
                             RatePer::Tick => "/tick",
@@ -305,12 +309,14 @@ impl BasicRecipeWindowDescriptor {
                 }
             }
         });
+
+        commons.recalculate |= changed;
     }
 
     fn show_power(&mut self, ui: &mut egui::Ui, _enabled: bool) {
         let power: &dyn ManageResourceFlow<usize> = match &self.power {
             None => {
-                if ui.button("Add Power").clicked() {}
+                if ui.button("Add Power").clicked() {} //TODO: Add power
                 return;
             }
             Some(a) => match a {
@@ -331,7 +337,12 @@ impl BasicRecipeWindowDescriptor {
         });
     }
 
-    fn show_time_settings(&mut self, ui: &mut egui::Ui, _enabled: bool) -> Result<(), FlowError> {
+    fn show_time_settings(
+        &mut self,
+        mut common: &mut CommonManager,
+        ui: &mut egui::Ui,
+        _enabled: bool,
+    ) -> Result<(), FlowError> {
         let mut amount = self.time_cycle;
         let mut rate = self.time_unit;
         ui.horizontal(|ui| {
@@ -366,6 +377,7 @@ impl BasicRecipeWindowDescriptor {
                 }
                 Ok(())
             };
+            common.recalculate = true;
             update_flow(&mut self.inputs)?;
             update_flow(&mut self.outputs)?;
         }

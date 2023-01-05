@@ -95,10 +95,10 @@ impl<T: Number, F: FloatingNumber> PartialOrd for ResourceFlow<T, F> {
         }
 
         if self.rate > other.rate {
-            other
-                .convert_amount(self.rate)
-                .unwrap()
-                .partial_cmp(&self.amount)
+            println!("self{}, other{}, convert other", self.rate, other.rate);
+
+            let amount = other.convert_amount(self.rate).unwrap();
+            self.amount.partial_cmp(&amount)
         } else {
             self.convert_amount(other.rate)
                 .unwrap()

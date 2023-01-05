@@ -76,6 +76,8 @@ pub struct CommonManager {
         RecipeWindowType,
     )>,
 
+    pub recalculate: bool,
+
     // List of error popups to keep
     show_errors: VecDeque<ShowError>,
 }
@@ -122,6 +124,7 @@ impl Default for FactoryManagementUtilsApp {
                 arrow_active: false,
                 clicked_start_arrow_info: None,
                 clicked_place_arrow_info: None,
+                recalculate: false,
                 show_errors: Default::default(),
             },
             show_tooltips: Default::default(),
@@ -597,6 +600,7 @@ impl eframe::App for FactoryManagementUtilsApp {
 
                     self.active_arrow = None;
                     self.commons.arrow_active = false;
+                    self.commons.recalculate = true;
                     self.commons.clicked_place_arrow_info = None;
                 }
             } else {
@@ -614,6 +618,11 @@ impl eframe::App for FactoryManagementUtilsApp {
                 *flow_index,
             ));
             self.commons.clicked_start_arrow_info = None;
+        }
+
+        if self.commons.recalculate {
+            self.calculate();
+            self.commons.recalculate = false;
         }
     }
 
