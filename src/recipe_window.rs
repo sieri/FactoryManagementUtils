@@ -553,7 +553,7 @@ impl RecipeWindowGUI for ResourceSink {
                         let mut resource_name = sink.resource().name;
                         text_edit(ui, &mut resource_name);
                         let mut amount_per_time = sink.total_in().amount;
-                        let mut rate = sink.total_in().rate;
+                        let rate = sink.total_in().rate;
                         egui::DragValue::new(&mut amount_per_time).ui(ui);
                         ui.label(egui::RichText::new(match rate {
                             RatePer::Tick => "/tick",
