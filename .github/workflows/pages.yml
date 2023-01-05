@@ -25,7 +25,8 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
           override: true
-      - uses: ./.github/workflow/env
+      - name: install gtk3
+        run: 'sudo apt install libgtk-3-dev'
       - name: Rust Cache # cache the rust build artefacts
         uses: Swatinem/rust-cache@v1
       - name: Download and install Trunk binary
