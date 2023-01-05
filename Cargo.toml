@@ -26,7 +26,7 @@ copypasta = "0.8.1"
 num-traits = "0.2.15"
 
 # rusty file dialogs to open file dialogues
-rfd = "0.10.0"
+rfd = {version = "0.10.0", features = ["default"]}
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

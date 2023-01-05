@@ -539,10 +539,7 @@ impl RecipeWindowGUI for ResourceSink {
 
                     if btn_resp.clicked() && commons.arrow_active {
                         commons.clicked_place_arrow_info = Some((
-                            match &self.sink {
-                                None => None,
-                                Some(sink) => Some(sink.resource().clone()),
-                            },
+                            self.sink.as_ref().map(|sink| sink.resource()),
                             self.id,
                             0,
                             RecipeWindowType::Sink,
