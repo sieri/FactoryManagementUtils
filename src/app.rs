@@ -8,10 +8,13 @@ use crate::resources::{
 };
 use copypasta::{ClipboardContext, ClipboardProvider};
 use egui::Widget;
+#[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, LinkedList, VecDeque};
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
+
 use std::time::{Duration, Instant};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -207,7 +210,9 @@ impl FactoryManagementUtilsApp {
                 }
             };
 
-            let end_id = arrow.end_flow_window.unwrap_or(egui::Id::new("Invalid ID"));
+            let end_id = arrow
+                .end_flow_window
+                .unwrap_or_else(|| egui::Id::new("Invalid ID"));
             let end_flow_index = arrow.end_flow_index;
             let end_type = arrow.end_flow_type.unwrap_or(RecipeWindowType::Source);
             let end_window_index = match end_type {
@@ -393,6 +398,7 @@ impl eframe::App for FactoryManagementUtilsApp {
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
+                    #[cfg(not(target_arch = "wasm32"))]
                     if ui.button("Save").clicked() {
                         let file = FileDialog::new()
                             .add_filter("FactoryManagementUtils file", &["fmu"])
@@ -419,6 +425,7 @@ impl eframe::App for FactoryManagementUtilsApp {
                             })
                         }
                     }
+                    #[cfg(not(target_arch = "wasm32"))]
                     if ui.button("Load").clicked() {
                         let file = FileDialog::new()
                             .add_filter("FactoryManagementUtils file", &["fmu"])
