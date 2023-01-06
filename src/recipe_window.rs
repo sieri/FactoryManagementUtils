@@ -215,14 +215,14 @@ impl BasicRecipeWindowDescriptor {
     ) {
         let mut changed = false;
         //get variables
-        let resource_flow: &dyn ManageResourceFlow<usize> = match dir {
-            Io::Input => match &self.inputs[resource_flow_index] {
+        let resource_flow: &mut dyn ManageResourceFlow<usize> = match dir {
+            Io::Input => match &mut self.inputs[resource_flow_index] {
                 RecipeInput(r) => r,
                 RecipeOutput(_) => {
                     panic!("Error!!! Impossible situation")
                 }
             },
-            Io::Output => match &self.outputs[resource_flow_index] {
+            Io::Output => match &mut self.outputs[resource_flow_index] {
                 RecipeInput(_) => {
                     panic!("Error!!! Impossible situation")
                 }
@@ -238,13 +238,13 @@ impl BasicRecipeWindowDescriptor {
             false => egui::Rgba::RED,
         };
 
-        let resource_flow = match dir {
+        let flow = match dir {
             Io::Input => resource_flow.total_out(),
             Io::Output => resource_flow.total_in(),
         };
-        let rate = resource_flow.rate;
-        let mut amount = resource_flow.amount_per_cycle;
-        let mut amount_per_time = resource_flow.amount;
+        let rate = flow.rate;
+        let mut amount = flow.amount_per_cycle;
+        let mut amount_per_time = flow.amount;
 
         ui.horizontal(|ui| {
             match dir {
@@ -269,13 +269,11 @@ impl BasicRecipeWindowDescriptor {
             ui.label(":");
 
             ui.vertical(|ui| {
-                changed |= ui
-                    .horizontal(|ui| {
-                        egui::DragValue::new(&mut amount).ui(ui);
-                        ui.label("per cycle");
-                    })
-                    .response
-                    .changed();
+                ui.horizontal(|ui| {
+                    changed |= egui::DragValue::new(&mut amount).ui(ui).changed();
+                    ui.label("per cycle");
+                });
+
                 ui.horizontal(|ui| {
                     changed |= egui::DragValue::new(&mut amount_per_time).ui(ui).changed();
                     ui.label(
@@ -309,6 +307,26 @@ impl BasicRecipeWindowDescriptor {
                 }
             }
         });
+
+        if changed {
+            if amount != flow.amount_per_cycle {
+                println!("Hello!");
+                match dir {
+                    Io::Input => {
+                        resource_flow.set_designed_amount_per_cycle(amount);
+                    }
+                    Io::Output => {
+                        resource_flow.set_designed_amount_per_cycle(amount);
+                    }
+                }
+            }
+
+            commons.recalculate = true;
+            let r = self.update_flow(dir);
+            if let Err(e) = r {
+                commons.add_error(ShowError::new(e.to_string()));
+            }
+        }
 
         commons.recalculate |= changed;
     }
@@ -362,24 +380,30 @@ impl BasicRecipeWindowDescriptor {
         }
 
         if changed {
-            let update_flow = |flow: &mut Vec<ManageFlow<usize>>| -> Result<(), FlowError> {
-                for f in flow.iter_mut() {
-                    match f {
-                        RecipeInput(f) => {
-                            f.needed
-                                .convert_time_base(self.time_cycle, self.time_unit)?;
-                        }
-                        RecipeOutput(f) => {
-                            f.created
-                                .convert_time_base(self.time_cycle, self.time_unit)?;
-                        }
-                    }
-                }
-                Ok(())
-            };
             common.recalculate = true;
-            update_flow(&mut self.inputs)?;
-            update_flow(&mut self.outputs)?;
+            self.update_flow(Io::Input)?;
+            self.update_flow(Io::Output)?;
+        }
+        Ok(())
+    }
+
+    fn update_flow(&mut self, dir: Io) -> Result<(), FlowError> {
+        let flow = match dir {
+            Io::Input => &mut self.inputs,
+            Io::Output => &mut self.outputs,
+        };
+
+        for f in flow.iter_mut() {
+            match f {
+                RecipeInput(f) => {
+                    f.needed
+                        .convert_time_base(self.time_cycle, self.time_unit)?;
+                }
+                RecipeOutput(f) => {
+                    f.created
+                        .convert_time_base(self.time_cycle, self.time_unit)?;
+                }
+            }
         }
         Ok(())
     }

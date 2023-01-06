@@ -74,7 +74,7 @@ pub struct ResourceDefinition {
 
 impl Display for ResourceDefinition {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Ressource(name={})", self.name)?;
+        write!(f, "Resource(name={})", self.name)?;
         Ok(())
     }
 }
@@ -95,8 +95,6 @@ impl<T: Number, F: FloatingNumber> PartialOrd for ResourceFlow<T, F> {
         }
 
         if self.rate > other.rate {
-            println!("self{}, other{}, convert other", self.rate, other.rate);
-
             let amount = other.convert_amount(self.rate).unwrap();
             self.amount.partial_cmp(&amount)
         } else {
@@ -280,6 +278,8 @@ pub(crate) trait ManageResourceFlow<T: Number> {
     ///the ``ResourceDefinition`` representing the flow
     fn resource(&self) -> ResourceDefinition;
 
+    fn set_designed_amount_per_cycle(&mut self, amount: T);
+
     ///reset the flows
     fn reset(&mut self);
 }
@@ -335,7 +335,6 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
         if flow.resource != self.resource {
             return false;
         }
-        println!("RecipeInputResource.add_out_flow({flow})");
         self.inputs.push(flow);
         true
     }
@@ -367,6 +366,10 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
         self.resource.clone()
     }
 
+    fn set_designed_amount_per_cycle(&mut self, amount: T) {
+        self.needed.amount_per_cycle = amount;
+    }
+
     fn reset(&mut self) {
         self.inputs.clear()
     }
@@ -381,7 +384,6 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
         if flow.resource != self.resource {
             return false;
         }
-        println!("RecipeOutputResource.add_out_flow({flow})");
         self.outputs.push(flow);
         true
     }
@@ -413,6 +415,10 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
 
     fn resource(&self) -> ResourceDefinition {
         self.resource.clone()
+    }
+
+    fn set_designed_amount_per_cycle(&mut self, amount: T) {
+        self.created.amount_per_cycle = amount;
     }
 
     fn reset(&mut self) {
