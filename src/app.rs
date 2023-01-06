@@ -462,6 +462,9 @@ impl eframe::App for FactoryManagementUtilsApp {
                     if ui.button("Reset").clicked() {
                         self.new_recipe_title.clear();
                         self.recipes.clear();
+                        self.arrows.clear();
+                        self.sources.clear();
+                        self.sinks.clear();
                     }
                     #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
                     if ui.button("Quit").clicked() {
