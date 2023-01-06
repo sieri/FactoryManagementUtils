@@ -15,6 +15,7 @@ use std::collections::{HashMap, LinkedList, VecDeque};
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 
+use crate::utils::Io;
 use std::time::{Duration, Instant};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -671,6 +672,16 @@ impl FactoryManagementUtilsApp {
 
                 if ui.button("Calculate").clicked() {
                     self.calculate();
+                }
+
+                if ui.button("Update all").clicked() {
+                    self.calculate();
+                    for recipe in self.recipes.iter_mut() {
+                        recipe.update_flow(Io::Input).expect("Update failure input");
+                        recipe
+                            .update_flow(Io::Output)
+                            .expect("Update failure output");
+                    }
                 }
             });
         }

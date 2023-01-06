@@ -72,6 +72,12 @@ pub struct BasicRecipeWindowDescriptor {
     ///flag if the description open
     description_open: bool,
 
+    ///Flag indicating if every inputs have sufficient resources
+    stable_in: bool,
+
+    ///Flag indicating if every outputs have sufficient draining
+    stable_out: bool,
+
     #[serde(skip)]
     window_coordinate: CoordinatesInfo,
 }
@@ -88,7 +94,29 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
         self.window_coordinate.out_flow.clear();
 
         let mut open = true;
-        let response = egui::Window::new(self.title.to_owned())
+
+        let title = format!(
+            "{}{}{}",
+            self.title,
+            match self.stable_in {
+                true => {
+                    "✔"
+                }
+                false => {
+                    "❗"
+                }
+            },
+            match self.stable_out {
+                true => {
+                    ""
+                }
+                false => {
+                    "⛔"
+                }
+            }
+        );
+
+        let response = egui::Window::new(title)
             .id(self.id)
             .enabled(enabled)
             .open(&mut open)
@@ -168,6 +196,8 @@ impl BasicRecipeWindowDescriptor {
             time_unit: RatePer::Second,
             description: "".to_string(),
             description_open: false,
+            stable_in: false,
+            stable_out: false,
             window_coordinate: CoordinatesInfo::default(),
         }
     }
@@ -241,6 +271,8 @@ impl BasicRecipeWindowDescriptor {
         let resource = resource_flow.resource();
 
         let mut name = resource.clone().name;
+
+        self.stable_in &= resource_flow.is_enough();
 
         let color = match resource_flow.is_enough() {
             true => egui::Rgba::GREEN,
@@ -397,32 +429,40 @@ impl BasicRecipeWindowDescriptor {
     }
 
     fn show_notes(&mut self, ui: &mut egui::Ui, _enabled: bool) {
-        let short_title = self.description.lines().next().unwrap_or_else(|| "").trim();
-        egui::CollapsingHeader::new(format!("Notes: {}", short_title))
+        let short_title = self.description.lines().next().unwrap_or("").trim();
+        egui::CollapsingHeader::new(format!("Notes: {short_title}"))
             .id_source(self.id)
             .show(ui, |ui| {
                 ui.text_edit_multiline(&mut self.description);
             });
     }
 
-    fn update_flow(&mut self, dir: Io) -> Result<(), FlowError> {
+    pub(crate) fn update_flow(&mut self, dir: Io) -> Result<(), FlowError> {
         let flow = match dir {
             Io::Input => &mut self.inputs,
             Io::Output => &mut self.outputs,
         };
-
+        let mut stable = true;
         for f in flow.iter_mut() {
             match f {
                 RecipeInput(f) => {
+                    stable &= f.is_enough();
                     f.needed
                         .convert_time_base(self.time_cycle, self.time_unit)?;
                 }
                 RecipeOutput(f) => {
+                    stable &= f.is_enough();
                     f.created
                         .convert_time_base(self.time_cycle, self.time_unit)?;
                 }
             }
         }
+
+        match dir {
+            Io::Input => self.stable_in = stable,
+            Io::Output => self.stable_out = stable,
+        }
+
         Ok(())
     }
 
