@@ -66,6 +66,12 @@ pub struct BasicRecipeWindowDescriptor {
     ///Time unit of cycle
     time_unit: RatePer,
 
+    ///Description
+    description: String,
+
+    ///flag if the description open
+    description_open: bool,
+
     #[serde(skip)]
     window_coordinate: CoordinatesInfo,
 }
@@ -99,6 +105,7 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
                     if result.is_err() {
                         commons.add_error(ShowError::new(format!("{}", result.err().unwrap())));
                     }
+                    self.show_notes(ui, enabled);
                 })
             });
         let inner_response = response.unwrap();
@@ -159,6 +166,8 @@ impl BasicRecipeWindowDescriptor {
             resource_adding_windows: vec![],
             time_cycle: 1,
             time_unit: RatePer::Second,
+            description: "".to_string(),
+            description_open: false,
             window_coordinate: CoordinatesInfo::default(),
         }
     }
@@ -385,6 +394,15 @@ impl BasicRecipeWindowDescriptor {
             self.update_flow(Io::Output)?;
         }
         Ok(())
+    }
+
+    fn show_notes(&mut self, ui: &mut egui::Ui, _enabled: bool) {
+        let short_title = self.description.lines().next().unwrap_or_else(|| "").trim();
+        egui::CollapsingHeader::new(format!("Notes: {}", short_title))
+            .id_source(self.id)
+            .show(ui, |ui| {
+                ui.text_edit_multiline(&mut self.description);
+            });
     }
 
     fn update_flow(&mut self, dir: Io) -> Result<(), FlowError> {
@@ -669,7 +687,8 @@ impl<T: Number> ResourceAddingWindow<T> {
 impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
     fn show(&mut self, _commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
         let mut open = true;
-        egui::Window::new(self.title.to_owned())
+
+        let response = egui::Window::new(self.title.to_owned())
             .id(self.id)
             .enabled(enabled)
             .open(&mut open)
@@ -677,9 +696,17 @@ impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
                         ui.label("Name:");
-                        egui::TextEdit::singleline(&mut self.resource_name)
+                        if egui::TextEdit::singleline(&mut self.resource_name)
                             .hint_text("resource name")
-                            .show(ui);
+                            .show(ui)
+                            .response
+                            .has_focus()
+                        {
+                            let input = ctx.input();
+                            if input.key_pressed(egui::Key::Enter) {
+                                self.okay = true;
+                            }
+                        };
                         ui.label("Amount:");
 
                         //ui.horizontal( |ui| {
@@ -695,12 +722,20 @@ impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
                             Io::Output => "Add output",
                         });
                         if button.clicked() {
-                            self.okay = true
+                            self.okay = true;
                         }
                     });
                 });
             });
 
+        if let Some(inner) = response {
+            if inner.response.has_focus() {
+                let input = ctx.input();
+                if input.key_pressed(egui::Key::Enter) {
+                    self.okay = true;
+                }
+            }
+        }
         open
     }
 }
