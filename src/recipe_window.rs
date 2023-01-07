@@ -6,8 +6,10 @@ use crate::resources::{
 };
 use crate::utils::{Io, Number};
 use egui::Widget;
+use itertools::{EitherOrBoth, Itertools};
 use std::default::Default;
 use std::f32;
+use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub trait RecipeWindowGUI {
@@ -29,6 +31,8 @@ pub trait RecipeWindowGUI {
             .as_nanos();
         egui::Id::new(name + &*format!("{timestamp}"))
     }
+
+    fn generate_tooltip(&self) -> Result<String, std::fmt::Error>;
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Copy, Clone)]
@@ -47,6 +51,9 @@ pub struct BasicRecipeWindowDescriptor {
 
     ///unique id of the recipe
     pub(crate) id: egui::Id,
+
+    ///unique id for the tooltip
+    pub(crate) tooltip_id: egui::Id,
 
     ///list of inputs
     pub(crate) inputs: Vec<ManageFlow<usize>>,
@@ -134,10 +141,22 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
                         commons.add_error(ShowError::new(format!("{}", result.err().unwrap())));
                     }
                     self.show_notes(ui, enabled);
-                })
+                });
             });
         let inner_response = response.unwrap();
         self.window_coordinate.window = inner_response.response.rect;
+
+        if inner_response.inner.is_none() {
+            inner_response.response.on_hover_ui(|ui| {
+                ui.label(
+                    egui::RichText::new(
+                        self.generate_tooltip()
+                            .unwrap_or_else(|_| "Error generating tooltip".to_string()),
+                    )
+                    .font(egui::FontId::monospace(10.0)),
+                );
+            });
+        }
 
         self.resource_adding_windows.retain_mut(|window| {
             let open = window.show(commons, ctx, enabled);
@@ -166,6 +185,152 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
 
         open
     }
+
+    fn generate_tooltip(&self) -> Result<String, std::fmt::Error> {
+        let mut tooltip = String::new();
+
+        let mut colum_a = Vec::new();
+        let mut colum_b = Vec::new();
+        let mut colum_a_lengths = (0, 0, 0);
+        let mut colum_b_lengths = (0, 0, 0);
+        write!(tooltip, "{}\n", self.title)?;
+        let input_title = "Inputs:".to_string();
+        let output_title = "Outputs:".to_string();
+        colum_a_lengths.0 = input_title.len();
+
+        colum_b_lengths.0 = output_title.len();
+
+        for it in self.inputs.iter().zip_longest(self.outputs.iter()) {
+            match it {
+                EitherOrBoth::Both(input, output) => {
+                    let temp = input.to_split_string();
+                    colum_a_lengths = (
+                        colum_a_lengths.0.max(temp[0].len()),
+                        colum_a_lengths.1.max(temp[1].len()),
+                        colum_a_lengths.2.max(temp[2].len()),
+                    );
+                    colum_a.push((
+                        Some(temp[0].clone()),
+                        Some(temp[1].clone()),
+                        Some(temp[2].clone()),
+                    ));
+                    let temp = output.to_split_string();
+                    colum_b_lengths = (
+                        colum_b_lengths.0.max(temp[0].len()),
+                        colum_b_lengths.1.max(temp[1].len()),
+                        colum_b_lengths.2.max(temp[2].len()),
+                    );
+                    colum_b.push((
+                        Some(temp[0].clone()),
+                        Some(temp[1].clone()),
+                        Some(temp[2].clone()),
+                    ));
+                }
+                EitherOrBoth::Left(input) => {
+                    let temp = input.to_split_string();
+                    colum_a_lengths = (
+                        colum_a_lengths.0.max(temp[0].len()),
+                        colum_a_lengths.1.max(temp[1].len()),
+                        colum_a_lengths.2.max(temp[2].len()),
+                    );
+                    colum_a.push((
+                        Some(temp[0].clone()),
+                        Some(temp[1].clone()),
+                        Some(temp[2].clone()),
+                    ));
+                }
+                EitherOrBoth::Right(output) => {
+                    let temp = output.to_split_string();
+                    colum_b_lengths = (
+                        colum_b_lengths.0.max(temp[0].len()),
+                        colum_b_lengths.1.max(temp[1].len()),
+                        colum_b_lengths.2.max(temp[2].len()),
+                    );
+                    colum_b.push((
+                        Some(temp[0].clone()),
+                        Some(temp[1].clone()),
+                        Some(temp[2].clone()),
+                    ));
+                }
+            }
+        }
+
+        let a0_len = colum_a_lengths.0;
+        let a1_len = colum_a_lengths.1;
+        let a2_len = colum_a_lengths.0 + colum_a_lengths.2;
+        let b0_len = colum_b_lengths.0;
+        let b1_len = colum_b_lengths.1 + 1;
+        let b2_len = colum_b_lengths.0 + colum_b_lengths.2 - 3;
+        let empty = "".to_string();
+
+        write!(
+            tooltip,
+            "{:<in_len$}|{:<out_len$}\n",
+            "Inputs:",
+            "Outputs:",
+            in_len = a2_len,
+            out_len = b2_len
+        )?;
+        for i in colum_a.iter().zip_longest(colum_b.iter()) {
+            match i {
+                EitherOrBoth::Both(a, b) => {
+                    write!(
+                        tooltip,
+                        "{:<a0$}:{:>a1$}|{:<b0$}:{:>b1$}\n{:>a2$}| {:>b2$}\n",
+                        a.0.as_ref().unwrap_or_else(|| { &empty }),
+                        a.1.as_ref().unwrap_or_else(|| { &empty }),
+                        b.0.as_ref().unwrap_or_else(|| { &empty }),
+                        b.1.as_ref().unwrap_or_else(|| { &empty }),
+                        a.2.as_ref().unwrap_or_else(|| { &empty }),
+                        b.2.as_ref().unwrap_or_else(|| { &empty }),
+                        a0 = a0_len,
+                        a1 = a1_len,
+                        a2 = a2_len,
+                        b0 = b0_len,
+                        b1 = b1_len,
+                        b2 = b2_len
+                    )?;
+                }
+                EitherOrBoth::Left(a) => {
+                    write!(
+                        tooltip,
+                        "{:<a0$}:{:>a1$}|{:<b0$} {:>b1$}\n{:>a2$}| {:>b2$}\n",
+                        a.0.as_ref().unwrap_or_else(|| { &empty }),
+                        a.1.as_ref().unwrap_or_else(|| { &empty }),
+                        empty,
+                        empty,
+                        a.2.as_ref().unwrap_or_else(|| { &empty }),
+                        empty,
+                        a0 = a0_len,
+                        a1 = a1_len,
+                        a2 = a2_len,
+                        b0 = b0_len,
+                        b1 = b1_len,
+                        b2 = b2_len
+                    )?;
+                }
+                EitherOrBoth::Right(b) => {
+                    write!(
+                        tooltip,
+                        "{:<a0$}{:>a1$}|{:<b0$}:{:>b1$}\n{:>a2$}| {:>b2$}\n",
+                        empty,
+                        empty,
+                        b.0.as_ref().unwrap_or_else(|| { &empty }),
+                        b.1.as_ref().unwrap_or_else(|| { &empty }),
+                        empty,
+                        b.2.as_ref().unwrap_or_else(|| { &empty }),
+                        a0 = a0_len,
+                        a1 = a1_len,
+                        a2 = a2_len,
+                        b0 = b0_len,
+                        b1 = b1_len,
+                        b2 = b2_len
+                    )?;
+                }
+            }
+        }
+        Ok(tooltip)
+    }
 }
 
 impl BasicRecipeWindowDescriptor {
@@ -178,6 +343,7 @@ impl BasicRecipeWindowDescriptor {
     /// returns: BasicRecipeWindowDescriptor
     pub fn new(title: String) -> Self {
         let id = BasicRecipeWindowDescriptor::gen_id(title.clone());
+        let tooltip_id = BasicRecipeWindowDescriptor::gen_id(format!("tooltip{}", title.clone()));
         let resource = ResourceDefinition {
             name: title.clone(),
             unit: Unit::Piece,
@@ -188,6 +354,7 @@ impl BasicRecipeWindowDescriptor {
         Self {
             title,
             id,
+            tooltip_id,
             inputs: vec![],
             outputs: vec![output],
             power: None,
@@ -317,15 +484,7 @@ impl BasicRecipeWindowDescriptor {
 
                 ui.horizontal(|ui| {
                     changed |= egui::DragValue::new(&mut amount_per_time).ui(ui).changed();
-                    ui.label(
-                        egui::RichText::new(match rate {
-                            RatePer::Tick => "/tick",
-                            RatePer::Second => "/s",
-                            RatePer::Minute => "/min ",
-                            RatePer::Hour => "/h",
-                        })
-                        .color(color),
-                    )
+                    ui.label(egui::RichText::new(rate.to_shortened_string()).color(color))
                 });
             });
 
@@ -560,6 +719,15 @@ impl RecipeWindowGUI for ResourceSource {
         let inner_response = response.unwrap();
         self.window_coordinate.window = inner_response.response.rect;
 
+        if inner_response.inner.is_none() {
+            inner_response.response.on_hover_ui(|ui| {
+                ui.label(
+                    self.generate_tooltip()
+                        .unwrap_or_else(|_| "Error generating tooltip".to_string()),
+                );
+            });
+        }
+
         if open {
             commons
                 .window_coordinates
@@ -569,6 +737,17 @@ impl RecipeWindowGUI for ResourceSource {
         }
 
         open
+    }
+
+    fn generate_tooltip(&self) -> Result<String, std::fmt::Error> {
+        let mut tooltip = String::new();
+        let flow = &self.output.created;
+        write!(
+            tooltip,
+            "Source of {}. {} {}",
+            flow.resource.name, flow.amount, flow.rate
+        )?;
+        Ok(tooltip)
     }
 }
 
@@ -658,6 +837,15 @@ impl RecipeWindowGUI for ResourceSink {
         let inner_response = response.unwrap();
         self.window_coordinate.window = inner_response.response.rect;
 
+        if inner_response.inner.is_none() {
+            inner_response.response.on_hover_ui(|ui| {
+                ui.label(
+                    self.generate_tooltip()
+                        .unwrap_or_else(|_| "Error generating tooltip".to_string()),
+                );
+            });
+        }
+
         if open {
             commons
                 .window_coordinates
@@ -667,6 +855,24 @@ impl RecipeWindowGUI for ResourceSink {
         }
 
         open
+    }
+
+    fn generate_tooltip(&self) -> Result<String, std::fmt::Error> {
+        let mut tooltip = String::new();
+
+        match &self.sink {
+            None => {}
+            Some(input) => {
+                let flow = &input.needed;
+                write!(
+                    tooltip,
+                    "Sink of {}. {} {}",
+                    flow.resource.name, flow.amount, flow.rate
+                )?;
+            }
+        }
+
+        Ok(tooltip)
     }
 }
 
@@ -778,6 +984,10 @@ impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
         }
         open
     }
+
+    fn generate_tooltip(&self) -> Result<String, std::fmt::Error> {
+        Ok("Window to add resources".to_string())
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Copy, Clone)]
@@ -868,6 +1078,10 @@ impl RecipeWindowGUI for ArrowFlow {
         painter.line_segment([start_point, end_point], egui::Stroke::new(5.0, color));
 
         true
+    }
+
+    fn generate_tooltip(&self) -> Result<String, std::fmt::Error> {
+        Ok("".to_string())
     }
 }
 

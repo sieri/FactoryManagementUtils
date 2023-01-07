@@ -1,5 +1,6 @@
 use crate::utils::{FloatingNumber, Number};
 
+use crate::utils;
 use num_traits::NumCast;
 use std::cmp::Ordering;
 use std::error::Error;
@@ -40,6 +41,16 @@ impl RatePer {
                 panic!("Can't call next on hour")
             }
         }
+    }
+
+    pub fn to_shortened_string(&self) -> String {
+        match self {
+            RatePer::Tick => "/tick",
+            RatePer::Second => "/s",
+            RatePer::Minute => "/min ",
+            RatePer::Hour => "/h",
+        }
+        .to_string()
     }
 }
 
@@ -243,12 +254,6 @@ pub(crate) trait ManageResourceFlow<T: Number> {
     /// * `ResourceFlow`: The flow to add as an input
     ///
     /// returns: `bool` flag indicating if the flow has been added correctly
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let added: bool = container.add_in_flow(ResourceFlow(resource, 100, 1.0, PerSecond));
-    /// ```
     fn add_in_flow(&mut self, flow: ResourceFlow<T, f32>) -> bool;
 
     /// Add a amount to flow inside the resource container
@@ -258,12 +263,6 @@ pub(crate) trait ManageResourceFlow<T: Number> {
     /// * `ResourceFlow`: The flow to add as an output
     ///
     /// returns: `bool` flag indicating if the flow has been added correctly
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let added: bool = container.add_out_flow(ResourceFlow(resource, 100, 1.0, PerSecond));
-    /// ```
     fn add_out_flow(&mut self, flow: ResourceFlow<T, f32>) -> bool;
 
     ///return the total flow in
@@ -279,6 +278,13 @@ pub(crate) trait ManageResourceFlow<T: Number> {
     fn resource(&self) -> ResourceDefinition;
 
     fn set_designed_amount_per_cycle(&mut self, amount: T);
+
+    ///Give a string representation
+    fn to_string(&self) -> String;
+
+    ///Give a string representation split in three strings for custom formatting first the name,
+    ///then the amount per cycle then the amount of per time, with unit
+    fn to_split_string(&self) -> [String; 3];
 
     ///reset the flows
     fn reset(&mut self);
@@ -370,6 +376,23 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
         self.needed.amount_per_cycle = amount;
     }
 
+    fn to_string(&self) -> String {
+        let strings = self.to_split_string();
+        format!("{}: {}||{}", strings[0], strings[1], strings[2])
+    }
+
+    fn to_split_string(&self) -> [String; 3] {
+        [
+            self.resource.name.clone(),
+            format!("{}", self.needed.amount_per_cycle),
+            format!(
+                "{}{}",
+                utils::float_format(self.needed.amount, 3),
+                self.needed.rate.to_shortened_string()
+            ),
+        ]
+    }
+
     fn reset(&mut self) {
         self.inputs.clear()
     }
@@ -421,6 +444,23 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
         self.created.amount_per_cycle = amount;
     }
 
+    fn to_string(&self) -> String {
+        let strings = self.to_split_string();
+        format!("{}: {}||{}", strings[0], strings[1], strings[2])
+    }
+
+    fn to_split_string(&self) -> [String; 3] {
+        [
+            self.resource.name.clone(),
+            format!("{}", self.created.amount_per_cycle),
+            format!(
+                "{}{}",
+                utils::float_format(self.created.amount, 3),
+                self.created.rate.to_shortened_string()
+            ),
+        ]
+    }
+
     fn reset(&mut self) {
         self.outputs.clear();
     }
@@ -430,6 +470,23 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
 pub(crate) enum ManageFlow<T: Number> {
     RecipeInput(RecipeInputResource<T>),
     RecipeOutput(RecipeOutputResource<T>),
+}
+
+impl<T: Number> ManageFlow<T> {
+    #[allow(dead_code)]
+    pub fn to_string(&self) -> String {
+        match self {
+            ManageFlow::RecipeInput(input) => input.to_string(),
+            ManageFlow::RecipeOutput(output) => output.to_string(),
+        }
+    }
+
+    pub fn to_split_string(&self) -> [String; 3] {
+        match self {
+            ManageFlow::RecipeInput(input) => input.to_split_string(),
+            ManageFlow::RecipeOutput(output) => output.to_split_string(),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

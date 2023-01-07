@@ -30,10 +30,6 @@ pub struct FactoryManagementUtilsApp {
     #[serde(skip)]
     commons: CommonManager,
 
-    /// List of tooltips that can be shown
-    #[serde(skip)]
-    show_tooltips: HashMap<egui::Id, (String, Instant)>,
-
     active_arrow: Option<ArrowFlow>,
     arrows: Vec<ArrowFlow>,
 }
@@ -81,6 +77,9 @@ pub struct CommonManager {
 
     // List of error popups to keep
     show_errors: VecDeque<ShowError>,
+
+    /// List of tooltips that can be shown
+    show_tooltips: HashMap<egui::Id, (String, Instant)>,
 }
 
 impl CommonManager {
@@ -90,6 +89,42 @@ impl CommonManager {
     /// queue until older errors have been acknowledged.
     pub(crate) fn add_error(&mut self, err: ShowError) {
         self.show_errors.push_front(err);
+    }
+
+    /// Add a tooltip to the GUI.
+    ///
+    /// The tooltip must be displayed until it expires or this will "leak" tooltips.
+    pub(crate) fn add_tooltip(&mut self, tooltip_id: egui::Id, label: String) {
+        self.show_tooltips
+            .insert(tooltip_id, (label.to_owned(), Instant::now()));
+    }
+
+    /// Show a tooltip at the current cursor position for the given duration.
+    ///
+    /// The tooltip must have already been added for it to be displayed.
+    pub(crate) fn tooltip(
+        &mut self,
+        ctx: &egui::Context,
+        ui: &egui::Ui,
+        tooltip_id: egui::Id,
+        duration: Duration,
+    ) {
+        if let Some((label, created)) = self.show_tooltips.remove(&tooltip_id) {
+            if Instant::now().duration_since(created) < duration {
+                let tooltip_position = ui.available_rect_before_wrap().min;
+                egui::containers::popup::show_tooltip_at(
+                    ctx,
+                    tooltip_id,
+                    Some(tooltip_position),
+                    |ui| {
+                        ui.label(&label);
+                    },
+                );
+
+                // Put the tooltip back until it expires
+                self.show_tooltips.insert(tooltip_id, (label, created));
+            }
+        }
     }
 }
 
@@ -127,8 +162,8 @@ impl Default for FactoryManagementUtilsApp {
                 clicked_place_arrow_info: None,
                 recalculate: false,
                 show_errors: Default::default(),
+                show_tooltips: Default::default(),
             },
-            show_tooltips: Default::default(),
             active_arrow: None,
             arrows: vec![],
         }
@@ -731,11 +766,12 @@ impl FactoryManagementUtilsApp {
                                 "Sorry, but the clipboard isn't working..."
                             };
 
-                            self.add_tooltip(tooltip_id, label);
+                            self.commons.add_tooltip(tooltip_id, label.to_string());
                         }
 
                         // Show the copy button tooltip for 3 seconds
-                        self.tooltip(ctx, ui, tooltip_id, Duration::from_secs(3));
+                        self.commons
+                            .tooltip(ctx, ui, tooltip_id, Duration::from_secs(3));
 
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                             if ui.button("Okay").clicked() {
@@ -750,42 +786,6 @@ impl FactoryManagementUtilsApp {
             result
         } else {
             true
-        }
-    }
-
-    /// Add a tooltip to the GUI.
-    ///
-    /// The tooltip must be displayed until it expires or this will "leak" tooltips.
-    fn add_tooltip(&mut self, tooltip_id: egui::Id, label: &str) {
-        self.show_tooltips
-            .insert(tooltip_id, (label.to_owned(), Instant::now()));
-    }
-
-    /// Show a tooltip at the current cursor position for the given duration.
-    ///
-    /// The tooltip must have already been added for it to be displayed.
-    fn tooltip(
-        &mut self,
-        ctx: &egui::Context,
-        ui: &egui::Ui,
-        tooltip_id: egui::Id,
-        duration: Duration,
-    ) {
-        if let Some((label, created)) = self.show_tooltips.remove(&tooltip_id) {
-            if Instant::now().duration_since(created) < duration {
-                let tooltip_position = ui.available_rect_before_wrap().min;
-                egui::containers::popup::show_tooltip_at(
-                    ctx,
-                    tooltip_id,
-                    Some(tooltip_position),
-                    |ui| {
-                        ui.label(&label);
-                    },
-                );
-
-                // Put the tooltip back until it expires
-                self.show_tooltips.insert(tooltip_id, (label, created));
-            }
         }
     }
 }

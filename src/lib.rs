@@ -6,3 +6,6 @@ pub(crate) mod resources;
 pub(crate) mod utils;
 
 pub use app::FactoryManagementUtilsApp;
+
+#[cfg(test)]
+mod tests;
