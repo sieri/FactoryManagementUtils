@@ -43,7 +43,7 @@ impl RatePer {
         }
     }
 
-    pub fn to_shortened_string(&self) -> String {
+    pub fn to_shortened_string(self) -> String {
         match self {
             RatePer::Tick => "/tick",
             RatePer::Second => "/s",

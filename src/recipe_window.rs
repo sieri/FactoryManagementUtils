@@ -1,15 +1,8 @@
-use crate::app::{CommonManager, CoordinatesInfo, ShowError};
-use crate::resources::ManageFlow::{RecipeInput, RecipeOutput};
-use crate::resources::{
-    FlowError, FlowErrorType, ManageFlow, ManageResourceFlow, RatePer, RecipeInputResource,
-    RecipeOutputResource, ResourceDefinition, ResourceFlow, Unit,
-};
-use crate::utils::{Io, Number};
-use egui::Widget;
-use itertools::{EitherOrBoth, Itertools};
-use std::default::Default;
+use crate::app::CommonManager;
+
+use crate::resources::RatePer;
+
 use std::f32;
-use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) mod arrow_flow;

@@ -1,7 +1,7 @@
 use crate::app::CommonManager;
 use crate::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::resources::{FlowError, FlowErrorType, ResourceDefinition};
-use std::fmt::Write;
+
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct ArrowFlow {
     pub(crate) id: egui::Id,

@@ -7,8 +7,6 @@ use crate::resources::{
 };
 use crate::utils::{Io, Number};
 use egui::Widget;
-use num_traits::One;
-use std::fmt::Write;
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct ResourceAddingWindow<T> {
     ///Title
