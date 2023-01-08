@@ -1,4 +1,4 @@
-use crate::app::CommonManager;
+use crate::app::commons::CommonsManager;
 use crate::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::resources::{FlowError, FlowErrorType, ResourceDefinition};
 
@@ -20,7 +20,7 @@ pub struct ArrowFlow {
 }
 
 impl RecipeWindowGUI for ArrowFlow {
-    fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
+    fn show(&mut self, commons: &mut CommonsManager, ctx: &egui::Context, enabled: bool) -> bool {
         let painter = ctx.layer_painter(self.layer_id);
 
         let start_coordinate_info = commons.window_coordinates.get(&self.start_flow_window);

@@ -1,4 +1,5 @@
-use crate::app::{CommonManager, CoordinatesInfo};
+use crate::app::commons::CommonsManager;
+use crate::app::coordinates_info::CoordinatesInfo;
 use crate::recipe_window;
 use crate::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::resources::{
@@ -29,7 +30,7 @@ pub struct ResourceSource {
 }
 
 impl RecipeWindowGUI for ResourceSource {
-    fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
+    fn show(&mut self, commons: &mut CommonsManager, ctx: &egui::Context, enabled: bool) -> bool {
         self.window_coordinate.in_flow.clear();
         self.window_coordinate.out_flow.clear();
 

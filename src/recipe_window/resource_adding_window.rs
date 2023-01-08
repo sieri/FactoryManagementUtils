@@ -1,4 +1,4 @@
-use crate::app::CommonManager;
+use crate::app::commons::CommonsManager;
 use crate::recipe_window::RecipeWindowGUI;
 use crate::resources::ManageFlow::{RecipeInput, RecipeOutput};
 use crate::resources::{
@@ -62,7 +62,7 @@ impl<T: Number> ResourceAddingWindow<T> {
 }
 
 impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
-    fn show(&mut self, _commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
+    fn show(&mut self, _commons: &mut CommonsManager, ctx: &egui::Context, enabled: bool) -> bool {
         let mut open = true;
 
         let response = egui::Window::new(self.title.to_owned())

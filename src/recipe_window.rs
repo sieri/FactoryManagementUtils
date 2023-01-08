@@ -1,4 +1,4 @@
-use crate::app::CommonManager;
+use crate::app::commons::CommonsManager;
 
 use crate::resources::RatePer;
 
@@ -21,7 +21,7 @@ pub trait RecipeWindowGUI {
     ///
     /// returns: `bool` flag if the window is still alive
     ///
-    fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool;
+    fn show(&mut self, commons: &mut CommonsManager, ctx: &egui::Context, enabled: bool) -> bool;
 
     fn gen_id(name: String) -> egui::Id {
         let timestamp = SystemTime::now()

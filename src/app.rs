@@ -1,14 +1,13 @@
 use crate::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::resources::{
-    ManageFlow, ManageResourceFlow, RecipeInputResource, RecipeOutputResource, ResourceDefinition,
-    ResourceFlow,
+    ManageFlow, ManageResourceFlow, RecipeInputResource, RecipeOutputResource, ResourceFlow,
 };
 use copypasta::{ClipboardContext, ClipboardProvider};
-use egui::Widget;
+use egui::{Context, Widget};
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, LinkedList, VecDeque};
+use std::collections::LinkedList;
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 
@@ -17,7 +16,15 @@ use crate::recipe_window::basic_recipe_window_descriptor::BasicRecipeWindowDescr
 use crate::recipe_window::resource_sink::ResourceSink;
 use crate::recipe_window::resources_sources::ResourceSource;
 use crate::utils::Io;
-use std::time::{Duration, Instant};
+use commons::CommonsManager;
+use eframe::Frame;
+use error::ShowError;
+use std::time::Duration;
+use Default;
+
+pub mod commons;
+pub mod coordinates_info;
+pub mod error;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -29,104 +36,10 @@ pub struct FactoryManagementUtilsApp {
     sources: Vec<ResourceSource>,
     sinks: Vec<ResourceSink>,
     #[serde(skip)]
-    commons: CommonManager,
+    commons: CommonsManager,
 
     active_arrow: Option<ArrowFlow>,
     arrows: Vec<ArrowFlow>,
-}
-
-#[derive(Clone)]
-pub struct CoordinatesInfo {
-    pub(crate) window: egui::Rect,
-    pub(crate) out_flow: Vec<egui::Rect>,
-    pub(crate) in_flow: Vec<egui::Rect>,
-}
-
-impl Default for CoordinatesInfo {
-    fn default() -> Self {
-        CoordinatesInfo {
-            window: egui::Rect {
-                min: Default::default(),
-                max: Default::default(),
-            },
-            out_flow: vec![],
-            in_flow: vec![],
-        }
-    }
-}
-
-pub struct CommonManager {
-    pub window_coordinates: HashMap<egui::Id, CoordinatesInfo>,
-
-    pub arrow_active: bool,
-
-    pub clicked_start_arrow_info: Option<(
-        ResourceDefinition,
-        egui::Id,
-        egui::LayerId,
-        usize,
-        RecipeWindowType,
-    )>,
-    pub clicked_place_arrow_info: Option<(
-        Option<ResourceDefinition>,
-        egui::Id,
-        usize,
-        RecipeWindowType,
-    )>,
-
-    pub recalculate: bool,
-
-    // List of error popups to keep
-    show_errors: VecDeque<ShowError>,
-
-    /// List of tooltips that can be shown
-    show_tooltips: HashMap<egui::Id, (String, Instant)>,
-}
-
-impl CommonManager {
-    /// Add an error to the GUI.
-    ///
-    /// The new error will be shown to the user if it is the only one, or else it will wait in a
-    /// queue until older errors have been acknowledged.
-    pub(crate) fn add_error(&mut self, err: ShowError) {
-        self.show_errors.push_front(err);
-    }
-
-    /// Add a tooltip to the GUI.
-    ///
-    /// The tooltip must be displayed until it expires or this will "leak" tooltips.
-    pub(crate) fn add_tooltip(&mut self, tooltip_id: egui::Id, label: String) {
-        self.show_tooltips
-            .insert(tooltip_id, (label, Instant::now()));
-    }
-
-    /// Show a tooltip at the current cursor position for the given duration.
-    ///
-    /// The tooltip must have already been added for it to be displayed.
-    pub(crate) fn tooltip(
-        &mut self,
-        ctx: &egui::Context,
-        ui: &egui::Ui,
-        tooltip_id: egui::Id,
-        duration: Duration,
-    ) {
-        if let Some((label, created)) = self.show_tooltips.remove(&tooltip_id) {
-            if Instant::now().duration_since(created) < duration {
-                let tooltip_position = ui.available_rect_before_wrap().min;
-                egui::containers::popup::show_tooltip_at(
-                    ctx,
-                    tooltip_id,
-                    Some(tooltip_position),
-                    |ui| {
-                        ui.label(&label);
-                    },
-                );
-
-                // Put the tooltip back until it expires
-                self.show_tooltips.insert(tooltip_id, (label, created));
-            }
-        }
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -156,7 +69,7 @@ impl Default for FactoryManagementUtilsApp {
             recipes: vec![],
             sources: vec![],
             sinks: vec![],
-            commons: CommonManager {
+            commons: CommonsManager {
                 window_coordinates: Default::default(),
                 arrow_active: false,
                 clicked_start_arrow_info: None,
@@ -408,31 +321,8 @@ impl FactoryManagementUtilsApp {
             }
         }
     }
-}
 
-fn add_flows(
-    source: &mut RecipeOutputResource<usize>,
-    input: &mut RecipeInputResource<usize>,
-    used_flow: ResourceFlow<usize, f32>,
-) {
-    let added_source = source.add_out_flow(used_flow.clone());
-    let added_input = input.add_in_flow(used_flow);
-
-    if !(added_source && added_input) {
-        println!("Error: added_source:{added_source} added_inputs{added_input}");
-    }
-}
-
-impl eframe::App for FactoryManagementUtilsApp {
-    /// Called each time the UI needs repainting, which may be many times per second.
-    /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let error = !self.commons.show_errors.is_empty();
-
-        if error {
-            self.error_window(ctx);
-        }
-
+    fn top_panel(&mut self, ctx: &Context, _frame: &mut Frame, error: bool) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.set_enabled(!error);
             // The top panel is often a good place for a menu bar:
@@ -510,7 +400,9 @@ impl eframe::App for FactoryManagementUtilsApp {
                 });
             });
         });
+    }
 
+    fn side_panel(&mut self, ctx: &Context, error: bool) {
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.set_enabled(!error);
             ui.heading("Control panel");
@@ -590,7 +482,9 @@ impl eframe::App for FactoryManagementUtilsApp {
                 });
             });
         });
+    }
 
+    fn central_panel(&mut self, ctx: &Context, error: bool) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.set_enabled(!error);
@@ -606,8 +500,12 @@ impl eframe::App for FactoryManagementUtilsApp {
                 .retain_mut(|source| source.show(&mut self.commons, ctx, !error));
             self.sinks
                 .retain_mut(|sink| sink.show(&mut self.commons, ctx, !error));
-        });
 
+            self.arrow_management(ctx, error);
+        });
+    }
+
+    fn arrow_management(&mut self, ctx: &Context, error: bool) {
         self.arrows
             .retain_mut(|arrow| arrow.show(&mut self.commons, ctx, !error));
         if self.active_arrow.is_some() {
@@ -659,6 +557,37 @@ impl eframe::App for FactoryManagementUtilsApp {
             ));
             self.commons.clicked_start_arrow_info = None;
         }
+    }
+}
+
+fn add_flows(
+    source: &mut RecipeOutputResource<usize>,
+    input: &mut RecipeInputResource<usize>,
+    used_flow: ResourceFlow<usize, f32>,
+) {
+    let added_source = source.add_out_flow(used_flow.clone());
+    let added_input = input.add_in_flow(used_flow);
+
+    if !(added_source && added_input) {
+        println!("Error: added_source:{added_source} added_inputs{added_input}");
+    }
+}
+
+impl eframe::App for FactoryManagementUtilsApp {
+    /// Called each time the UI needs repainting, which may be many times per second.
+    /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
+    fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
+        let error = !self.commons.show_errors.is_empty();
+
+        if error {
+            self.error_window(ctx);
+        }
+
+        self.top_panel(ctx, _frame, error);
+
+        self.side_panel(ctx, error);
+
+        self.central_panel(ctx, error);
 
         if self.commons.recalculate {
             self.calculate();
@@ -724,7 +653,7 @@ impl FactoryManagementUtilsApp {
     }
 
     /// Show error window.
-    fn error_window(&mut self, ctx: &egui::Context) -> bool {
+    fn error_window(&mut self, ctx: &Context) -> bool {
         let err = self.commons.show_errors.pop_back();
         if let Some(err) = err {
             let mut result = true;
@@ -787,38 +716,6 @@ impl FactoryManagementUtilsApp {
             result
         } else {
             true
-        }
-    }
-}
-
-/// Holds state for an error message to show to the user, and provides a feedback mechanism for the
-/// user to make a decision on how to handle the error.
-pub(crate) struct ShowError {
-    /// The error message.
-    error: String,
-    /// Simple description for the user
-    context: String,
-}
-
-impl ShowError {
-    /// Create an default error message to be shown to the user.
-    ///
-    ///
-    pub(crate) fn new(err: String) -> Self {
-        Self {
-            error: err,
-            context: "An error occurred".to_string(),
-        }
-    }
-
-    /// Create an error message to be shown to the user. customize the context
-    ///
-    ///
-    #[allow(dead_code)]
-    pub(crate) fn new_custom_context(err: String, context: String) -> Self {
-        Self {
-            error: err,
-            context,
         }
     }
 }

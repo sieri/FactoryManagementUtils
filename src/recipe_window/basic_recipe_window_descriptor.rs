@@ -1,4 +1,6 @@
-use crate::app::{CommonManager, CoordinatesInfo, ShowError};
+use crate::app::commons::CommonsManager;
+use crate::app::coordinates_info::CoordinatesInfo;
+use crate::app::error::ShowError;
 use crate::recipe_window;
 use crate::recipe_window::resource_adding_window::ResourceAddingWindow;
 use crate::recipe_window::{RecipeWindowGUI, RecipeWindowType};
@@ -66,7 +68,7 @@ impl Default for BasicRecipeWindowDescriptor {
 }
 
 impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
-    fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
+    fn show(&mut self, commons: &mut CommonsManager, ctx: &egui::Context, enabled: bool) -> bool {
         self.window_coordinate.in_flow.clear();
         self.window_coordinate.out_flow.clear();
 
@@ -347,7 +349,7 @@ impl BasicRecipeWindowDescriptor {
         }
     }
 
-    fn show_inputs(&mut self, commons: &mut CommonManager, ui: &mut egui::Ui, enabled: bool) {
+    fn show_inputs(&mut self, commons: &mut CommonsManager, ui: &mut egui::Ui, enabled: bool) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let _ = ui.label("Inputs");
@@ -369,7 +371,7 @@ impl BasicRecipeWindowDescriptor {
         });
     }
 
-    fn show_outputs(&mut self, commons: &mut CommonManager, ui: &mut egui::Ui, enabled: bool) {
+    fn show_outputs(&mut self, commons: &mut CommonsManager, ui: &mut egui::Ui, enabled: bool) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let _ = ui.label("Outputs");
@@ -391,7 +393,7 @@ impl BasicRecipeWindowDescriptor {
 
     fn show_flow(
         &mut self,
-        commons: &mut CommonManager,
+        commons: &mut CommonsManager,
         resource_flow_index: usize,
         dir: Io,
         ui: &mut egui::Ui,
@@ -535,7 +537,7 @@ impl BasicRecipeWindowDescriptor {
 
     fn show_time_settings(
         &mut self,
-        mut common: &mut CommonManager,
+        mut common: &mut CommonsManager,
         ui: &mut egui::Ui,
         _enabled: bool,
     ) -> Result<(), FlowError> {

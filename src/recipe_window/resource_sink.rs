@@ -1,9 +1,11 @@
-use crate::app::{CommonManager, CoordinatesInfo};
+use crate::app::commons::CommonsManager;
+use crate::app::coordinates_info::CoordinatesInfo;
 use crate::recipe_window;
 use crate::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::resources::{ManageResourceFlow, RatePer, RecipeInputResource};
 use egui::Widget;
 use std::fmt::Write;
+
 #[derive(serde::Deserialize, serde::Serialize)]
 pub(crate) struct ResourceSink {
     ///unique id of the resource
@@ -27,7 +29,7 @@ impl ResourceSink {
 }
 
 impl RecipeWindowGUI for ResourceSink {
-    fn show(&mut self, commons: &mut CommonManager, ctx: &egui::Context, enabled: bool) -> bool {
+    fn show(&mut self, commons: &mut CommonsManager, ctx: &egui::Context, enabled: bool) -> bool {
         self.window_coordinate.in_flow.clear();
         self.window_coordinate.out_flow.clear();
 
