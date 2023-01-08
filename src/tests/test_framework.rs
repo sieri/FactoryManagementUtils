@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 
 pub struct TestError {
-    text: String,
+    pub(crate) text: String,
 }
 
 impl Debug for TestError {

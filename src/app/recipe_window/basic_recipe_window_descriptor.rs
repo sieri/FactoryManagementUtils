@@ -13,7 +13,7 @@ use egui::Widget;
 use itertools::{EitherOrBoth, Itertools};
 use std::fmt::Write;
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)]
 /// Descriptor for a Basic Recipe window, the recipe is directly calculated
 pub struct BasicRecipeWindowDescriptor {
@@ -614,3 +614,24 @@ impl BasicRecipeWindowDescriptor {
         self.resource_adding_windows.push(window);
     }
 }
+
+impl PartialEq<Self> for BasicRecipeWindowDescriptor {
+    fn eq(&self, other: &Self) -> bool {
+        let mut r = true;
+        r &= self.id == other.id;
+        r &= self.tooltip_id == other.tooltip_id;
+        r &= self.inputs == other.inputs;
+        r &= self.outputs == other.outputs;
+        r &= self.power == other.power;
+        r &= self.resource_adding_windows == other.resource_adding_windows;
+        r &= self.time_cycle == other.time_cycle;
+        r &= self.time_unit == other.time_unit;
+        r &= self.description == other.description;
+        r &= self.description_open == other.description_open;
+        r &= self.stable_in == other.stable_in;
+        r &= self.stable_out == other.stable_out;
+        r
+    }
+}
+
+impl Eq for BasicRecipeWindowDescriptor {}

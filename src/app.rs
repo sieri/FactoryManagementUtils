@@ -333,68 +333,20 @@ impl FactoryManagementUtilsApp {
                 ui.menu_button("File", |ui| {
                     #[cfg(not(target_arch = "wasm32"))]
                     if ui.button("Save").clicked() {
-                        let file = FileDialog::new()
-                            .add_filter("FactoryManagementUtils file", &["fmu"])
-                            .set_directory("/")
-                            .save_file()
-                            .unwrap();
-
-                        let file_write = File::create(file);
-
-                        let file_write = match file_write {
-                            Ok(f) => f,
-                            Err(e) => {
-                                self.commons.add_error(ShowError::new(e.to_string()));
-                                return;
-                            }
-                        };
-
-                        let r = self.serialize(&mut serde_json::Serializer::new(file_write));
-
-                        if let Err(e) = r {
-                            self.commons.add_error(ShowError {
-                                error: e.to_string(),
-                                context: "The save failed for the following reason".to_string(),
-                            })
+                        let file_write = self.select_file_out();
+                        if let Some(file_write) = file_write {
+                            self.save(&file_write);
                         }
                     }
                     #[cfg(not(target_arch = "wasm32"))]
                     if ui.button("Load").clicked() {
-                        let file = FileDialog::new()
-                            .add_filter("FactoryManagementUtils file", &["fmu"])
-                            .set_directory("/")
-                            .pick_file()
-                            .unwrap();
-
-                        let file_read = File::open(file);
-
-                        let file_read = match file_read {
-                            Ok(f) => f,
-                            Err(e) => {
-                                self.commons.add_error(ShowError::new(e.to_string()));
-                                return;
-                            }
-                        };
-
-                        let mut deserializer = serde_json::Deserializer::from_reader(file_read);
-                        let r = Self::deserialize(&mut deserializer);
-
-                        match r {
-                            Ok(factory_app) => {
-                                self.reload(factory_app);
-                            }
-                            Err(e) => self.commons.add_error(ShowError {
-                                error: e.to_string(),
-                                context: "The save failed for the following reason".to_string(),
-                            }),
+                        let file_read = self.file_select_in();
+                        if let Some(file_read) = file_read {
+                            self.load(file_read);
                         }
                     }
                     if ui.button("Reset").clicked() {
-                        self.new_recipe_title.clear();
-                        self.recipes.clear();
-                        self.arrows.clear();
-                        self.sources.clear();
-                        self.sinks.clear();
+                        self.reset();
                     }
                     #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
                     if ui.button("Quit").clicked() {
@@ -403,6 +355,78 @@ impl FactoryManagementUtilsApp {
                 });
             });
         });
+    }
+
+    fn reset(&mut self) {
+        self.new_recipe_title.clear();
+        self.recipes.clear();
+        self.arrows.clear();
+        self.sources.clear();
+        self.sinks.clear();
+    }
+
+    fn select_file_out(&mut self) -> Option<File> {
+        let file = FileDialog::new()
+            .add_filter("FactoryManagementUtils file", &["fmu"])
+            .set_directory("/")
+            .save_file()
+            .unwrap();
+
+        let file_write = File::create(file);
+
+        let file_write = match file_write {
+            Ok(f) => f,
+            Err(e) => {
+                self.commons.add_error(ShowError::new(e.to_string()));
+                return None;
+            }
+        };
+        Some(file_write)
+    }
+
+    fn file_select_in(&mut self) -> Option<File> {
+        let file = FileDialog::new()
+            .add_filter("FactoryManagementUtils file", &["fmu"])
+            .set_directory("/")
+            .pick_file()
+            .unwrap();
+
+        let file_read = File::open(file);
+
+        let file_read = match file_read {
+            Ok(f) => f,
+            Err(e) => {
+                self.commons.add_error(ShowError::new(e.to_string()));
+                return None;
+            }
+        };
+        Some(file_read)
+    }
+
+    fn load(&mut self, file_read: File) {
+        let mut deserializer = serde_json::Deserializer::from_reader(file_read);
+        let r = Self::deserialize(&mut deserializer);
+
+        match r {
+            Ok(factory_app) => {
+                self.reload(factory_app);
+            }
+            Err(e) => self.commons.add_error(ShowError {
+                error: e.to_string(),
+                context: "The save failed for the following reason".to_string(),
+            }),
+        }
+    }
+
+    fn save(&mut self, file_write: &File) {
+        let r = self.serialize(&mut serde_json::Serializer::new(file_write));
+
+        if let Err(e) = r {
+            self.commons.add_error(ShowError {
+                error: e.to_string(),
+                context: "The save failed for the following reason".to_string(),
+            })
+        }
     }
 
     fn side_panel(&mut self, ctx: &Context, error: bool) {

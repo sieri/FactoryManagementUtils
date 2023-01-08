@@ -27,7 +27,7 @@ pub enum Unit {
 }
 ///rate of a flow
 #[allow(dead_code)]
-#[derive(Debug, PartialEq, PartialOrd, Copy, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, PartialEq, PartialOrd, Copy, Clone, serde::Deserialize, serde::Serialize, Eq)]
 pub enum RatePer {
     Tick,
     Second,
@@ -94,7 +94,7 @@ impl Display for ResourceDefinition {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) enum ManageFlow<T: Number> {
     RecipeInput(RecipeInputResource<T>),
     RecipeOutput(RecipeOutputResource<T>),

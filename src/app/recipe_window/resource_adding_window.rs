@@ -8,7 +8,7 @@ use crate::app::resources::{ManageFlow, RatePer, ResourceDefinition, Unit};
 use crate::utils::{Io, Number};
 use egui::Widget;
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Eq, PartialEq)]
 pub struct ResourceAddingWindow<T> {
     ///Title
     pub(crate) title: String,

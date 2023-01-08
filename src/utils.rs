@@ -26,7 +26,7 @@ impl<T> FloatingNumber for T where T: Number + Float + From<f32> + NumCast + Par
 {}
 
 ///A multi purpose enum to differentiate input from outputs
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Eq, PartialEq)]
 pub enum Io {
     Input,
     Output,

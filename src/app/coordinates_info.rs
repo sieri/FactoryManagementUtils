@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CoordinatesInfo {
     pub(crate) window: egui::Rect,
     pub(crate) out_flow: Vec<egui::Rect>,

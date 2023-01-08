@@ -4,7 +4,7 @@ use crate::utils;
 use crate::utils::Number;
 
 ///an input resource for a recipe
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) struct RecipeOutputResource<T: Number> {
     ///the type of resource this considers
     resource: ResourceDefinition,

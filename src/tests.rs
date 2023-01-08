@@ -1,3 +1,3 @@
-mod recipe_windows_test;
-mod resources_test;
+mod recipe_window;
+mod resources;
 mod test_framework;
