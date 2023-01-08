@@ -1,7 +1,4 @@
-use crate::recipe_window::{RecipeWindowGUI, RecipeWindowType};
-use crate::resources::{
-    ManageFlow, ManageResourceFlow, RecipeInputResource, RecipeOutputResource, ResourceFlow,
-};
+use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use copypasta::{ClipboardContext, ClipboardProvider};
 use egui::{Context, Widget};
 #[cfg(not(target_arch = "wasm32"))]
@@ -11,20 +8,26 @@ use std::collections::LinkedList;
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 
-use crate::recipe_window::arrow_flow::ArrowFlow;
-use crate::recipe_window::basic_recipe_window_descriptor::BasicRecipeWindowDescriptor;
-use crate::recipe_window::resource_sink::ResourceSink;
-use crate::recipe_window::resources_sources::ResourceSource;
+use crate::app::recipe_window::arrow_flow::ArrowFlow;
+use crate::app::recipe_window::basic_recipe_window_descriptor::BasicRecipeWindowDescriptor;
+use crate::app::recipe_window::resource_sink::ResourceSink;
+use crate::app::recipe_window::resources_sources::ResourceSource;
+use crate::app::resources::resource_flow::ResourceFlow;
+use crate::app::resources::ManageFlow;
 use crate::utils::Io;
 use commons::CommonsManager;
 use eframe::Frame;
 use error::ShowError;
+use resources::recipe_input_resource::RecipeInputResource;
+use resources::recipe_output_resource::RecipeOutputResource;
+use resources::resource_flow::ManageResourceFlow;
 use std::time::Duration;
-
 
 pub mod commons;
 pub mod coordinates_info;
 pub mod error;
+pub mod recipe_window;
+pub(crate) mod resources;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]

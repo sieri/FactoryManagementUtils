@@ -1,6 +1,6 @@
 use crate::app::commons::CommonsManager;
-use crate::recipe_window::{RecipeWindowGUI, RecipeWindowType};
-use crate::resources::{FlowError, FlowErrorType, ResourceDefinition};
+use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
+use crate::app::resources::{FlowError, FlowErrorType, ResourceDefinition};
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct ArrowFlow {

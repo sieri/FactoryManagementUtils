@@ -1,4 +1,4 @@
-use crate::resources::{RatePer, ResourceDefinition, ResourceFlow, Unit};
+use crate::app::resources::{resource_flow, RatePer, ResourceDefinition, Unit};
 
 pub(crate) fn setup_resource_a() -> ResourceDefinition {
     ResourceDefinition {
@@ -7,8 +7,8 @@ pub(crate) fn setup_resource_a() -> ResourceDefinition {
     }
 }
 
-pub(crate) fn setup_flow_resource_a() -> ResourceFlow<usize, f32> {
-    ResourceFlow::new(&setup_resource_a(), 2, 2.0, RatePer::Minute)
+pub(crate) fn setup_flow_resource_a() -> resource_flow<usize, f32> {
+    resource_flow::new(&setup_resource_a(), 2, 2.0, RatePer::Minute)
 }
 
 //-------------------Tests-------------------

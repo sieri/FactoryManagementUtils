@@ -1,6 +1,6 @@
 use crate::app::commons::CommonsManager;
 
-use crate::resources::RatePer;
+use crate::app::resources::RatePer;
 
 use std::f32;
 use std::time::{SystemTime, UNIX_EPOCH};

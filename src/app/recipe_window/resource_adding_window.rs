@@ -1,12 +1,13 @@
 use crate::app::commons::CommonsManager;
-use crate::recipe_window::RecipeWindowGUI;
-use crate::resources::ManageFlow::{RecipeInput, RecipeOutput};
-use crate::resources::{
-    ManageFlow, RatePer, RecipeInputResource, RecipeOutputResource, ResourceDefinition,
-    ResourceFlow, Unit,
-};
+use crate::app::recipe_window::RecipeWindowGUI;
+use crate::app::resources::recipe_input_resource::RecipeInputResource;
+use crate::app::resources::recipe_output_resource::RecipeOutputResource;
+use crate::app::resources::resource_flow::ResourceFlow;
+use crate::app::resources::ManageFlow::{RecipeInput, RecipeOutput};
+use crate::app::resources::{ManageFlow, RatePer, ResourceDefinition, Unit};
 use crate::utils::{Io, Number};
 use egui::Widget;
+
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct ResourceAddingWindow<T> {
     ///Title

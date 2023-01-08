@@ -1,14 +1,13 @@
 use crate::app::commons::CommonsManager;
 use crate::app::coordinates_info::CoordinatesInfo;
 use crate::app::error::ShowError;
-use crate::recipe_window;
-use crate::recipe_window::resource_adding_window::ResourceAddingWindow;
-use crate::recipe_window::{RecipeWindowGUI, RecipeWindowType};
-use crate::resources::ManageFlow::{RecipeInput, RecipeOutput};
-use crate::resources::{
-    FlowError, ManageFlow, ManageResourceFlow, RatePer, RecipeOutputResource, ResourceDefinition,
-    ResourceFlow, Unit,
-};
+use crate::app::recipe_window;
+use crate::app::recipe_window::resource_adding_window::ResourceAddingWindow;
+use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
+use crate::app::resources::recipe_output_resource::RecipeOutputResource;
+use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
+use crate::app::resources::ManageFlow::{RecipeInput, RecipeOutput};
+use crate::app::resources::{FlowError, ManageFlow, RatePer, ResourceDefinition, Unit};
 use crate::utils::Io;
 use egui::Widget;
 use itertools::{EitherOrBoth, Itertools};

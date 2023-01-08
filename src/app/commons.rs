@@ -1,7 +1,7 @@
 use crate::app::coordinates_info::CoordinatesInfo;
 use crate::app::error::ShowError;
-use crate::recipe_window::RecipeWindowType;
-use crate::resources::ResourceDefinition;
+use crate::app::recipe_window::RecipeWindowType;
+use crate::app::resources::ResourceDefinition;
 use egui::Context;
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};

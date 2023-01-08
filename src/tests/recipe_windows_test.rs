@@ -1,6 +1,7 @@
+use crate::app::resources::recipe_input_resource::RecipeInputResource;
+use crate::app::resources::ManageFlow;
 use crate::recipe_window::basic_recipe_window_descriptor::BasicRecipeWindowDescriptor;
 use crate::recipe_window::RecipeWindowGUI;
-use crate::resources::{ManageFlow, RecipeInputResource};
 use crate::tests::resources_test::{setup_flow_resource_a, setup_resource_a};
 use crate::tests::test_framework as t;
 use crate::tests::test_framework::TestResult;

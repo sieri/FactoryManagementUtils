@@ -1,8 +1,10 @@
 use crate::app::commons::CommonsManager;
 use crate::app::coordinates_info::CoordinatesInfo;
-use crate::recipe_window;
-use crate::recipe_window::{RecipeWindowGUI, RecipeWindowType};
-use crate::resources::{ManageResourceFlow, RatePer, RecipeInputResource};
+use crate::app::recipe_window;
+use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
+use crate::app::resources::recipe_input_resource::RecipeInputResource;
+use crate::app::resources::resource_flow::ManageResourceFlow;
+use crate::app::resources::RatePer;
 use egui::Widget;
 use std::fmt::Write;
 
