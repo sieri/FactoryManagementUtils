@@ -1,7 +1,4 @@
-use crate::recipe_window::{
-    ArrowFlow, BasicRecipeWindowDescriptor, RecipeWindowGUI, RecipeWindowType, ResourceSink,
-    ResourceSource,
-};
+use crate::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::resources::{
     ManageFlow, ManageResourceFlow, RecipeInputResource, RecipeOutputResource, ResourceDefinition,
     ResourceFlow,
@@ -15,6 +12,10 @@ use std::collections::{HashMap, LinkedList, VecDeque};
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 
+use crate::recipe_window::arrow_flow::ArrowFlow;
+use crate::recipe_window::basic_recipe_window_descriptor::BasicRecipeWindowDescriptor;
+use crate::recipe_window::resource_sink::ResourceSink;
+use crate::recipe_window::resources_sources::ResourceSource;
 use crate::utils::Io;
 use std::time::{Duration, Instant};
 
