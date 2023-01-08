@@ -20,7 +20,7 @@ use commons::CommonsManager;
 use eframe::Frame;
 use error::ShowError;
 use std::time::Duration;
-use Default;
+
 
 pub mod commons;
 pub mod coordinates_info;

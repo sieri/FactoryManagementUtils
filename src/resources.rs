@@ -474,7 +474,7 @@ pub(crate) enum ManageFlow<T: Number> {
 
 impl<T: Number> ManageFlow<T> {
     #[allow(dead_code)]
-    pub fn to_string(&self) -> String {
+    pub fn to_string_rep(&self) -> String {
         match self {
             ManageFlow::RecipeInput(input) => input.to_string(),
             ManageFlow::RecipeOutput(output) => output.to_string(),
