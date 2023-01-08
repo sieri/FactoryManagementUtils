@@ -43,7 +43,7 @@ fn build_tooltip(lines: &[&str]) -> String {
 //-------------------Tests-------------------
 
 #[test]
-#[ignore = "Not working"]
+#[ignore = "Not working"] //TODO: FIX
 fn test_tooltip_empty() -> TestResult {
     let sample_window = setup_basic_recipe_window_empty();
     let expected = build_tooltip(
@@ -59,7 +59,7 @@ fn test_tooltip_empty() -> TestResult {
 }
 
 #[test]
-#[ignore = "Not working"]
+#[ignore = "Not working"] //TODO: FIX
 fn test_tooltip_one_to_one() -> TestResult {
     let sample_window = setup_basic_recipe_one_to_one();
     let expected = build_tooltip(

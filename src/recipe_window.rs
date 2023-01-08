@@ -187,6 +187,7 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
     }
 
     fn generate_tooltip(&self) -> Result<String, std::fmt::Error> {
+        //TODO: FIX
         let mut tooltip = String::new();
 
         let mut colum_a = Vec::new();
