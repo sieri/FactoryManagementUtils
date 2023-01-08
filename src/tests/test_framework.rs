@@ -20,7 +20,3 @@ pub fn assert_equal<T: Eq + Debug>(expected: T, obtained: T, msg: &str) -> TestR
     }
     Ok(())
 }
-
-pub trait TestPrint {
-    fn test_print(&self) -> String;
-}

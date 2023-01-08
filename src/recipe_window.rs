@@ -257,74 +257,81 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
 
         let a0_len = colum_a_lengths.0;
         let a1_len = colum_a_lengths.1;
-        let a2_len = colum_a_lengths.0 + colum_a_lengths.2;
+        let a2_len = colum_a_lengths.0 + colum_a_lengths.1 + 1;
         let b0_len = colum_b_lengths.0;
-        let b1_len = colum_b_lengths.1 + 1;
-        let b2_len = colum_b_lengths.0 + colum_b_lengths.2 - 3;
+        let b1_len = colum_b_lengths.1;
+        let b2_len = colum_b_lengths.0 + colum_b_lengths.1 - 1;
         let empty = "".to_string();
+
+        // println!(
+        //     "a0_len = {}\na1_len = {}\na2_len = {}\nb0_len = {}\nb1_len = {}\nb2_len = {}\n",
+        //     a0_len, a1_len, a2_len, b0_len, b1_len, b2_len
+        // );
 
         write!(
             tooltip,
-            "{:<in_len$}|{:<out_len$}\n",
-            "Inputs:",
-            "Outputs:",
-            in_len = a2_len,
-            out_len = b2_len
+            "{:<in_len$}|{:<out_len$} \n",
+            "Inputs: ",
+            "Outputs: ",
+            in_len = colum_a_lengths.0 + colum_a_lengths.1 - 1,
+            out_len = colum_b_lengths.0 + colum_b_lengths.1 + 1
         )?;
         for i in colum_a.iter().zip_longest(colum_b.iter()) {
             match i {
                 EitherOrBoth::Both(a, b) => {
                     write!(
                         tooltip,
-                        "{:<a0$}:{:>a1$}|{:<b0$}:{:>b1$}\n{:>a2$}| {:>b2$}\n",
-                        a.0.as_ref().unwrap_or_else(|| { &empty }),
-                        a.1.as_ref().unwrap_or_else(|| { &empty }),
-                        b.0.as_ref().unwrap_or_else(|| { &empty }),
-                        b.1.as_ref().unwrap_or_else(|| { &empty }),
-                        a.2.as_ref().unwrap_or_else(|| { &empty }),
-                        b.2.as_ref().unwrap_or_else(|| { &empty }),
-                        a0 = a0_len,
-                        a1 = a1_len,
-                        a2 = a2_len,
-                        b0 = b0_len,
-                        b1 = b1_len,
-                        b2 = b2_len
+                        "{a0:<a0_len$}: {a1:>a1_len$}|{b0:<b0_len$}: {b1:>b1_len$}\n{a2:>a2_len$}|   {b2:>b2_len$}\n",
+                        a0=a.0.as_ref().unwrap_or_else(|| { &empty }),
+                        a1=a.1.as_ref().unwrap_or_else(|| { &empty }),
+                        a2=a.2.as_ref().unwrap_or_else(|| { &empty }),
+                        b0=b.0.as_ref().unwrap_or_else(|| { &empty }),
+                        b1=b.1.as_ref().unwrap_or_else(|| { &empty }),
+                        b2=b.2.as_ref().unwrap_or_else(|| { &empty }),
+                        a0_len = a0_len,
+                        a1_len = a1_len,
+                        a2_len = a2_len,
+                        b0_len = b0_len,
+                        b1_len = b1_len,
+                        b2_len = b2_len
                     )?;
                 }
                 EitherOrBoth::Left(a) => {
                     write!(
                         tooltip,
-                        "{:<a0$}:{:>a1$}|{:<b0$} {:>b1$}\n{:>a2$}| {:>b2$}\n",
-                        a.0.as_ref().unwrap_or_else(|| { &empty }),
-                        a.1.as_ref().unwrap_or_else(|| { &empty }),
-                        empty,
-                        empty,
-                        a.2.as_ref().unwrap_or_else(|| { &empty }),
-                        empty,
-                        a0 = a0_len,
-                        a1 = a1_len,
-                        a2 = a2_len,
-                        b0 = b0_len,
-                        b1 = b1_len,
-                        b2 = b2_len
+                        "{a0:<a0_len$}: {a1:>a1_len$}|{b0:<b0_len$}  {b1:>b1_len$}\n{a2:>a2_len$}|   {b2:>b2_len$}\n",
+                        a0=a.0.as_ref().unwrap_or_else(|| { &empty }),
+                        a1=a.1.as_ref().unwrap_or_else(|| { &empty }),
+                        a2=a.2.as_ref().unwrap_or_else(|| { &empty }),
+                        b0=empty,
+                        b1=empty,
+
+                        b2=empty,
+                        a0_len = a0_len,
+                        a1_len = a1_len,
+                        a2_len = a2_len,
+                        b0_len = b0_len,
+                        b1_len = b1_len,
+                        b2_len = b2_len
                     )?;
                 }
                 EitherOrBoth::Right(b) => {
                     write!(
                         tooltip,
-                        "{:<a0$}{:>a1$}|{:<b0$}:{:>b1$}\n{:>a2$}| {:>b2$}\n",
-                        empty,
-                        empty,
-                        b.0.as_ref().unwrap_or_else(|| { &empty }),
-                        b.1.as_ref().unwrap_or_else(|| { &empty }),
-                        empty,
-                        b.2.as_ref().unwrap_or_else(|| { &empty }),
-                        a0 = a0_len,
-                        a1 = a1_len,
-                        a2 = a2_len,
-                        b0 = b0_len,
-                        b1 = b1_len,
-                        b2 = b2_len
+                        "{a0:<a0_len$} {a1:>a1_len$}|{b0:<b0_len$}: {b1:>b1_len$}\n{a2:>a2_len$}|    {b2:>b2_len$}\n",
+                        a0=empty,
+                        a1=empty,
+                        a2=empty,
+                        b0=b.0.as_ref().unwrap_or_else(|| { &empty }),
+                        b1=b.1.as_ref().unwrap_or_else(|| { &empty }),
+
+                        b2=b.2.as_ref().unwrap_or_else(|| { &empty }),
+                        a0_len = a0_len,
+                        a1_len = a1_len,
+                        a2_len = a2_len,
+                        b0_len = b0_len,
+                        b1_len = b1_len,
+                        b2_len = b2_len
                     )?;
                 }
             }

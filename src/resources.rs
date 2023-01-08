@@ -47,7 +47,7 @@ impl RatePer {
         match self {
             RatePer::Tick => "/tick",
             RatePer::Second => "/s",
-            RatePer::Minute => "/min ",
+            RatePer::Minute => "/min",
             RatePer::Hour => "/h",
         }
         .to_string()
