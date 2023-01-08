@@ -35,7 +35,7 @@ fn test_tooltip(window: BasicRecipeWindowDescriptor, expected: String) -> TestRe
 fn build_tooltip(lines: &[&str]) -> String {
     let mut r = String::new();
     for l in lines {
-        write!(r, "{}\n", l).expect("Built tooltip failed");
+        writeln!(r, "{l}").expect("Built tooltip failed");
     }
     r
 }

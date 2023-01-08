@@ -96,7 +96,7 @@ impl CommonManager {
     /// The tooltip must be displayed until it expires or this will "leak" tooltips.
     pub(crate) fn add_tooltip(&mut self, tooltip_id: egui::Id, label: String) {
         self.show_tooltips
-            .insert(tooltip_id, (label.to_owned(), Instant::now()));
+            .insert(tooltip_id, (label, Instant::now()));
     }
 
     /// Show a tooltip at the current cursor position for the given duration.

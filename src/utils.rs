@@ -66,7 +66,7 @@ pub fn float_format<F: FloatingNumber>(float: F, precision: usize) -> String {
     } else {
         0
     };
-    format!("{0:.1$}", float, precision)
+    format!("{float:.precision$}")
 }
 
 #[cfg(test)]

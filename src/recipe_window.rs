@@ -194,7 +194,7 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
         let mut colum_b = Vec::new();
         let mut colum_a_lengths = (0, 0, 0);
         let mut colum_b_lengths = (0, 0, 0);
-        write!(tooltip, "{}\n", self.title)?;
+        writeln!(tooltip, "{}", self.title)?;
         let input_title = "Inputs:".to_string();
         let output_title = "Outputs:".to_string();
         colum_a_lengths.0 = input_title.len();
@@ -269,9 +269,9 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
         //     a0_len, a1_len, a2_len, b0_len, b1_len, b2_len
         // );
 
-        write!(
+        writeln!(
             tooltip,
-            "{:<in_len$}|{:<out_len$} \n",
+            "{:<in_len$}|{:<out_len$} ",
             "Inputs: ",
             "Outputs: ",
             in_len = colum_a_lengths.0 + colum_a_lengths.1 - 1,
@@ -283,12 +283,12 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
                     write!(
                         tooltip,
                         "{a0:<a0_len$}: {a1:>a1_len$}|{b0:<b0_len$}: {b1:>b1_len$}\n{a2:>a2_len$}|   {b2:>b2_len$}\n",
-                        a0=a.0.as_ref().unwrap_or_else(|| { &empty }),
-                        a1=a.1.as_ref().unwrap_or_else(|| { &empty }),
-                        a2=a.2.as_ref().unwrap_or_else(|| { &empty }),
-                        b0=b.0.as_ref().unwrap_or_else(|| { &empty }),
-                        b1=b.1.as_ref().unwrap_or_else(|| { &empty }),
-                        b2=b.2.as_ref().unwrap_or_else(|| { &empty }),
+                        a0=a.0.as_ref().unwrap_or(&empty),
+                        a1=a.1.as_ref().unwrap_or(&empty),
+                        a2=a.2.as_ref().unwrap_or(&empty),
+                        b0=b.0.as_ref().unwrap_or(&empty),
+                        b1=b.1.as_ref().unwrap_or(&empty),
+                        b2=b.2.as_ref().unwrap_or(&empty),
                         a0_len = a0_len,
                         a1_len = a1_len,
                         a2_len = a2_len,
@@ -301,9 +301,9 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
                     write!(
                         tooltip,
                         "{a0:<a0_len$}: {a1:>a1_len$}|{b0:<b0_len$}  {b1:>b1_len$}\n{a2:>a2_len$}|   {b2:>b2_len$}\n",
-                        a0=a.0.as_ref().unwrap_or_else(|| { &empty }),
-                        a1=a.1.as_ref().unwrap_or_else(|| { &empty }),
-                        a2=a.2.as_ref().unwrap_or_else(|| { &empty }),
+                        a0=a.0.as_ref().unwrap_or(&empty),
+                        a1=a.1.as_ref().unwrap_or(&empty),
+                        a2=a.2.as_ref().unwrap_or(&empty),
                         b0=empty,
                         b1=empty,
 
@@ -323,10 +323,10 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
                         a0=empty,
                         a1=empty,
                         a2=empty,
-                        b0=b.0.as_ref().unwrap_or_else(|| { &empty }),
-                        b1=b.1.as_ref().unwrap_or_else(|| { &empty }),
+                        b0=b.0.as_ref().unwrap_or(&empty),
+                        b1=b.1.as_ref().unwrap_or(&empty),
 
-                        b2=b.2.as_ref().unwrap_or_else(|| { &empty }),
+                        b2=b.2.as_ref().unwrap_or(&empty),
                         a0_len = a0_len,
                         a1_len = a1_len,
                         a2_len = a2_len,
@@ -351,7 +351,7 @@ impl BasicRecipeWindowDescriptor {
     /// returns: BasicRecipeWindowDescriptor
     pub fn new(title: String) -> Self {
         let id = BasicRecipeWindowDescriptor::gen_id(title.clone());
-        let tooltip_id = BasicRecipeWindowDescriptor::gen_id(format!("tooltip{}", title.clone()));
+        let tooltip_id = BasicRecipeWindowDescriptor::gen_id(format!("tooltip{title}"));
         let resource = ResourceDefinition {
             name: title.clone(),
             unit: Unit::Piece,
