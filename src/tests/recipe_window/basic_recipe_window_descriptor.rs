@@ -36,7 +36,7 @@ fn test_tooltip(window: BasicRecipeWindowDescriptor, expected: String) -> TestRe
 //-------------------Tests-------------------
 
 #[test]
-#[ignore = "Not working"] //TODO: FIX
+#[ignore = "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"] //TODO: FIX
 fn test_tooltip_empty() -> TestResult {
     let sample_window = setup_basic_recipe_window_empty();
     let expected = recipe_window::build_tooltip(
@@ -52,7 +52,7 @@ fn test_tooltip_empty() -> TestResult {
 }
 
 #[test]
-#[ignore = "Not working"] //TODO: FIX
+#[ignore = "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"] //TODO: FIX
 fn test_tooltip_one_to_one() -> TestResult {
     let sample_window = setup_basic_recipe_one_to_one();
     let expected = recipe_window::build_tooltip(
@@ -78,7 +78,7 @@ fn test_serialization() -> TestResult {
 
         if let Err(e) = result {
             return Err(TestError {
-                text: format!("serialization error {}", e.to_string()),
+                text: format!("serialization error {e}"),
             });
         }
         strings.push(vec)
@@ -91,7 +91,7 @@ fn test_serialization() -> TestResult {
         let result = BasicRecipeWindowDescriptor::deserialize(&mut des);
         if let Err(e) = result {
             return Err(TestError {
-                text: format!("deserialization error {}", e.to_string()),
+                text: format!("deserialization error {e}"),
             });
         }
         deserializes.push(result.unwrap());
@@ -99,6 +99,35 @@ fn test_serialization() -> TestResult {
 
     for (original, deserialized) in originals.iter().zip(deserializes.iter()) {
         t::assert_equal(original, deserialized, "Deserialization doesn't match")?;
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_save_and_load() -> TestResult {
+    let mut originals = setup_list_of_window();
+    let mut saved = vec![];
+    for original in originals.iter_mut() {
+        saved.push(original.save().expect("Not saved"));
+    }
+    let mut load = vec![];
+    for s in saved {
+        load.push(BasicRecipeWindowDescriptor::load(s).expect("Not loaded"))
+    }
+
+    for (original, loaded) in originals.iter().zip(load.iter()) {
+        t::assert_custom(
+            original,
+            loaded,
+            "Original and loaded should be are not equivalent",
+            |a, b| a.equivalent(b),
+        )?;
+        t::assert_not_equal(
+            original,
+            loaded,
+            "Original and loaded should be different in ids",
+        )?;
     }
 
     Ok(())

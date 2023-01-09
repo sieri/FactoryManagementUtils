@@ -1,6 +1,6 @@
 use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use copypasta::{ClipboardContext, ClipboardProvider};
-use egui::{Context, Widget};
+use egui::{Context, Ui, Widget};
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
@@ -38,9 +38,7 @@ pub struct FactoryManagementUtilsApp {
     recipes: Vec<BasicRecipeWindowDescriptor>,
     sources: Vec<ResourceSource>,
     sinks: Vec<ResourceSink>,
-    #[serde(skip)]
     commons: CommonsManager,
-
     active_arrow: Option<ArrowFlow>,
     arrows: Vec<ArrowFlow>,
 }
@@ -72,15 +70,7 @@ impl Default for FactoryManagementUtilsApp {
             recipes: vec![],
             sources: vec![],
             sinks: vec![],
-            commons: CommonsManager {
-                window_coordinates: Default::default(),
-                arrow_active: false,
-                clicked_start_arrow_info: None,
-                clicked_place_arrow_info: None,
-                recalculate: false,
-                show_errors: Default::default(),
-                show_tooltips: Default::default(),
-            },
+            commons: Default::default(),
             active_arrow: None,
             arrows: vec![],
         }
@@ -365,6 +355,7 @@ impl FactoryManagementUtilsApp {
         self.sinks.clear();
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn select_file_out(&mut self) -> Option<File> {
         let file = FileDialog::new()
             .add_filter("FactoryManagementUtils file", &["fmu"])
@@ -384,6 +375,7 @@ impl FactoryManagementUtilsApp {
         Some(file_write)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn file_select_in(&mut self) -> Option<File> {
         let file = FileDialog::new()
             .add_filter("FactoryManagementUtils file", &["fmu"])
@@ -403,6 +395,7 @@ impl FactoryManagementUtilsApp {
         Some(file_read)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn load(&mut self, file_read: File) {
         let mut deserializer = serde_json::Deserializer::from_reader(file_read);
         let r = Self::deserialize(&mut deserializer);
@@ -418,6 +411,7 @@ impl FactoryManagementUtilsApp {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn save(&mut self, file_write: &File) {
         let r = self.serialize(&mut serde_json::Serializer::new(file_write));
 
@@ -434,43 +428,59 @@ impl FactoryManagementUtilsApp {
             ui.set_enabled(!error);
             ui.heading("Control panel");
 
-            ui.horizontal(|ui| {
-                ui.label("New recipe title: ");
-                ui.text_edit_singleline(&mut self.new_recipe_title);
-            });
-
-            if ui.button("Create recipe").clicked() {
-                //spawn a button in the central panel
-                if self.new_recipe_title.is_empty() {
-                    self.commons
-                        .add_error(ShowError::new("Need a title to create a window".to_owned()))
-                } else {
-                    let recipe_window =
-                        BasicRecipeWindowDescriptor::new(self.new_recipe_title.to_owned());
-                    self.recipes.push(recipe_window);
-                }
-            }
+            self.recipe_adding(ui);
 
             ui.separator();
 
-            ui.horizontal(|ui| {
-                ui.label("New resource source:");
-                ui.text_edit_singleline(&mut self.new_resource_source);
-            });
-
-            if ui.button("Create source").clicked() {
-                let source = ResourceSource::new(self.new_resource_source.clone());
-                self.sources.push(source);
-            }
-            if ui.button("Create sink").clicked() {
-                let sink = ResourceSink::new();
-                self.sinks.push(sink);
-            }
+            self.sources_and_sinks_adding(ui);
 
             ui.separator();
-            ui.collapsing("Resource usage", |ui| {
-                for source in self.sources.iter() {
-                    let flow = source.output.total_out();
+            self.resource_usage(ui);
+            self.resource_generation(ui);
+
+            ui.separator();
+            self.recipes_list(ui);
+
+            self.debug(ui);
+
+            Self::left_panel_footer(ui);
+        });
+    }
+
+    fn left_panel_footer(ui: &mut Ui) {
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 0.0;
+                ui.label("powered by ");
+                ui.hyperlink_to("egui", "https://github.com/emilk/egui");
+                ui.label(" and ");
+                ui.hyperlink_to(
+                    "eframe",
+                    "https://github.com/emilk/egui/tree/master/crates/eframe",
+                );
+                ui.label(".");
+            });
+        });
+    }
+
+    fn recipes_list(&mut self, ui: &mut Ui) {
+        ui.label("Recipe lists:");
+        self.commons.saved_recipes.recipes_list(ui);
+        if ui.button("Add recipes").clicked() {
+            let r = self.commons.saved_recipes.load();
+            match r {
+                Ok(data) => self.recipes.push(data),
+                Err(e) => self.commons.add_error(e),
+            };
+        }
+        ui.label("Right click on a recipe to save it here");
+    }
+
+    fn resource_generation(&mut self, ui: &mut Ui) {
+        ui.collapsing("Resource generated", |ui| {
+            for sink in self.sinks.iter() {
+                if let Some(sink) = sink.sink.as_ref() {
+                    let flow = sink.total_in();
                     ui.horizontal(|ui| {
                         ui.label(format!(
                             "{}: {} {}",
@@ -478,37 +488,57 @@ impl FactoryManagementUtilsApp {
                         ));
                     });
                 }
-            });
-            ui.collapsing("Resource generated", |ui| {
-                for sink in self.sinks.iter() {
-                    if let Some(sink) = sink.sink.as_ref() {
-                        let flow = sink.total_in();
-                        ui.horizontal(|ui| {
-                            ui.label(format!(
-                                "{}: {} {}",
-                                flow.resource.name, flow.amount, flow.rate
-                            ));
-                        });
-                    }
-                }
-            });
-
-            self.debug(ui);
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.label("powered by ");
-                    ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                    ui.label(" and ");
-                    ui.hyperlink_to(
-                        "eframe",
-                        "https://github.com/emilk/egui/tree/master/crates/eframe",
-                    );
-                    ui.label(".");
-                });
-            });
+            }
         });
+    }
+
+    fn resource_usage(&mut self, ui: &mut Ui) {
+        ui.collapsing("Resource usage", |ui| {
+            for source in self.sources.iter() {
+                let flow = source.output.total_out();
+                ui.horizontal(|ui| {
+                    ui.label(format!(
+                        "{}: {} {}",
+                        flow.resource.name, flow.amount, flow.rate
+                    ));
+                });
+            }
+        });
+    }
+
+    fn sources_and_sinks_adding(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.label("New resource source:");
+            ui.text_edit_singleline(&mut self.new_resource_source);
+        });
+
+        if ui.button("Create source").clicked() {
+            let source = ResourceSource::new(self.new_resource_source.clone());
+            self.sources.push(source);
+        }
+        if ui.button("Create sink").clicked() {
+            let sink = ResourceSink::new();
+            self.sinks.push(sink);
+        }
+    }
+
+    fn recipe_adding(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.label("New recipe title: ");
+            ui.text_edit_singleline(&mut self.new_recipe_title);
+        });
+
+        if ui.button("Create recipe").clicked() {
+            //spawn a button in the central panel
+            if self.new_recipe_title.is_empty() {
+                self.commons
+                    .add_error(ShowError::new("Need a title to create a window".to_owned()))
+            } else {
+                let recipe_window =
+                    BasicRecipeWindowDescriptor::new(self.new_recipe_title.to_owned());
+                self.recipes.push(recipe_window);
+            }
+        }
     }
 
     fn central_panel(&mut self, ctx: &Context, error: bool) {
@@ -528,11 +558,11 @@ impl FactoryManagementUtilsApp {
             self.sinks
                 .retain_mut(|sink| sink.show(&mut self.commons, ctx, !error));
 
-            self.arrow_management(ctx, error);
+            self.arrow_management(ui, ctx, error);
         });
     }
 
-    fn arrow_management(&mut self, ctx: &Context, error: bool) {
+    fn arrow_management(&mut self, ui: &mut egui::Ui, ctx: &Context, error: bool) {
         self.arrows
             .retain_mut(|arrow| arrow.show(&mut self.commons, ctx, !error));
         if self.active_arrow.is_some() {

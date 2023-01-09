@@ -20,3 +20,25 @@ pub fn assert_equal<T: Eq + Debug>(expected: T, obtained: T, msg: &str) -> TestR
     }
     Ok(())
 }
+pub fn assert_not_equal<T: Eq + Debug>(control: T, obtained: T, msg: &str) -> TestResult {
+    if control == obtained {
+        return Err(TestError {
+            text: format!(" Inequality: {msg}\n\tcontrol:[{control:?}]\n\tobtained:[{obtained:?}]"),
+        });
+    }
+    Ok(())
+}
+
+pub fn assert_custom<T: Eq + Debug, F: FnOnce(&T, &T) -> bool>(
+    control: T,
+    obtained: T,
+    msg: &str,
+    check: F,
+) -> TestResult {
+    if !check(&control, &obtained) {
+        return Err(TestError {
+            text: format!(" Custom: {msg}\n\tcontrol:[{control:?}]\n\tobtained:[{obtained:?}]"),
+        });
+    }
+    Ok(())
+}

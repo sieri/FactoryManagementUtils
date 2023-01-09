@@ -1,3 +1,4 @@
+use crate::app::commons::right_click_menu::RightClick;
 use crate::app::commons::CommonsManager;
 use crate::app::coordinates_info::CoordinatesInfo;
 use crate::app::error::ShowError;
@@ -11,20 +12,26 @@ use crate::app::resources::{FlowError, ManageFlow, RatePer, ResourceDefinition, 
 use crate::utils::Io;
 use egui::Widget;
 use itertools::{EitherOrBoth, Itertools};
-use std::fmt::Write;
+use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Write};
+use std::io::Cursor;
+use std::time::Duration;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)]
 /// Descriptor for a Basic Recipe window, the recipe is directly calculated
 pub struct BasicRecipeWindowDescriptor {
     ///Title of the recipe
-    title: String,
+    pub(crate) title: String,
 
     ///unique id of the recipe
     pub(crate) id: egui::Id,
 
     ///unique id for the tooltip
     pub(crate) tooltip_id: egui::Id,
+
+    //unique id for the temporary tooltip
+    temp_tooltip_id: egui::Id,
 
     ///list of inputs
     pub(crate) inputs: Vec<ManageFlow<usize>>,
@@ -58,6 +65,12 @@ pub struct BasicRecipeWindowDescriptor {
 
     #[serde(skip)]
     window_coordinate: CoordinatesInfo,
+
+    #[serde(skip)]
+    errors: Vec<ShowError>,
+
+    #[serde(skip)]
+    right_click: Option<RightClick>,
 }
 
 impl Default for BasicRecipeWindowDescriptor {
@@ -117,8 +130,36 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
         let inner_response = response.unwrap();
         self.window_coordinate.window = inner_response.response.rect;
 
+        if inner_response.response.secondary_clicked() {
+            println!("Hey");
+            commons.save(self);
+            commons.add_tooltip(self.id.with("Tooltip"), "Saved".to_string());
+            //TODO: placeholder code for right click investigate
+            // self.right_click = Some(RightClick::new(
+            //     ctx.pointer_interact_pos()
+            //         .unwrap_or_else(|| Pos2::new(0.0, 0.0)),
+            // ))
+        }
+
+        // if let Some(right_click) = self.right_click.clone() {
+        //     right_click.show(ctx, |ui| {
+        //         if ui.button("save").interact(Sense::click()).clicked() {
+        //             if let Some(saved) = self.save() {
+        //commons.saved_recipes.push(self.title.clone(), saved);
+        //             }
+        //             self.right_click = None;
+        //         }
+        //     })
+        // }
+        let mut resp = inner_response.response;
+        if commons.has_tooltip(self.temp_tooltip_id) {
+            resp = resp.on_hover_ui(|ui| {
+                commons.tooltip(ctx, ui, self.temp_tooltip_id, Duration::from_secs(2));
+            });
+        }
+
         if inner_response.inner.is_none() {
-            inner_response.response.on_hover_ui(|ui| {
+            resp.on_hover_ui(|ui| {
                 ui.label(
                     egui::RichText::new(
                         self.generate_tooltip()
@@ -145,6 +186,10 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
             }
             open && !window.okay
         });
+
+        if let Some(err) = self.errors.pop() {
+            commons.show_errors.push_back(err);
+        }
 
         if open {
             commons
@@ -322,7 +367,8 @@ impl BasicRecipeWindowDescriptor {
     /// returns: BasicRecipeWindowDescriptor
     pub fn new(title: String) -> Self {
         let id = BasicRecipeWindowDescriptor::gen_id(title.clone());
-        let tooltip_id = BasicRecipeWindowDescriptor::gen_id(format!("tooltip{title}"));
+        let tooltip_id = id.with("Tooltip");
+        let temp_tooltip_id = id.with("Temp Tooltip");
         let resource = ResourceDefinition {
             name: title.clone(),
             unit: Unit::Piece,
@@ -334,6 +380,7 @@ impl BasicRecipeWindowDescriptor {
             title,
             id,
             tooltip_id,
+            temp_tooltip_id,
             inputs: vec![],
             outputs: vec![output],
             power: None,
@@ -345,6 +392,8 @@ impl BasicRecipeWindowDescriptor {
             stable_in: false,
             stable_out: false,
             window_coordinate: CoordinatesInfo::default(),
+            errors: vec![],
+            right_click: None,
         }
     }
 
@@ -613,6 +662,63 @@ impl BasicRecipeWindowDescriptor {
         let window = ResourceAddingWindow::<usize>::new(title, dir);
         self.resource_adding_windows.push(window);
     }
+
+    ///Save to self to json data
+    ///None if there was an error, which is added to the error queue
+    pub(crate) fn save(&mut self) -> Option<String> {
+        let mut vec = vec![0u8];
+        let s = Cursor::new(&mut vec);
+        let result = self.serialize(&mut serde_json::Serializer::new(s));
+
+        match result {
+            Ok(_) => {
+                let result = String::from_utf8(vec);
+                match result {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        self.errors.push(ShowError::new_custom_context(
+                            e.to_string(),
+                            "An error happened on save of a recipe".to_string(),
+                        ));
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                self.errors.push(ShowError::new_custom_context(
+                    e.to_string(),
+                    "An error happened on save of a recipe".to_string(),
+                ));
+                None
+            }
+        }
+    }
+
+    pub(crate) fn load(str: String) -> Result<Self, ShowError> {
+        let cursor = Cursor::new(str);
+        let mut des = serde_json::Deserializer::from_reader(cursor);
+        let result = BasicRecipeWindowDescriptor::deserialize(&mut des);
+
+        match result {
+            Ok(mut loaded) => {
+                loaded.gen_ids();
+                Ok(loaded)
+            }
+            Err(e) => Err(ShowError::new_custom_context(
+                e.to_string(),
+                "An error happened on load of a recipe".to_string(),
+            )),
+        }
+    }
+
+    pub(crate) fn get_title(&self) -> String {
+        self.title.clone()
+    }
+    fn gen_ids(&mut self) {
+        self.id = BasicRecipeWindowDescriptor::gen_id(self.title.clone());
+        self.tooltip_id = self.id.with("Tooltip");
+        self.temp_tooltip_id = self.id.with("Temp Tooltip")
+    }
 }
 
 impl PartialEq<Self> for BasicRecipeWindowDescriptor {
@@ -620,6 +726,16 @@ impl PartialEq<Self> for BasicRecipeWindowDescriptor {
         let mut r = true;
         r &= self.id == other.id;
         r &= self.tooltip_id == other.tooltip_id;
+        r &= self.temp_tooltip_id == other.temp_tooltip_id;
+        r &= self.equivalent(other);
+        r
+    }
+}
+
+impl BasicRecipeWindowDescriptor {
+    pub fn equivalent(&self, other: &Self) -> bool {
+        let mut r = true;
+        r &= self.title == other.title;
         r &= self.inputs == other.inputs;
         r &= self.outputs == other.outputs;
         r &= self.power == other.power;

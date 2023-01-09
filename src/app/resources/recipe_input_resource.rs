@@ -4,7 +4,7 @@ use crate::utils;
 use crate::utils::Number;
 
 ///an input resource for a recipe
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug,  PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) struct RecipeInputResource<T: Number> {
     ///the type of resource this considers
     resource: ResourceDefinition,
@@ -16,9 +16,7 @@ pub(crate) struct RecipeInputResource<T: Number> {
     pub(crate) needed: ResourceFlow<T, f32>,
 }
 
-impl<T:Number> Eq for RecipeInputResource<T> {
-    
-}
+impl<T: Number> Eq for RecipeInputResource<T> {}
 
 impl<T: Number> RecipeInputResource<T> {
     pub(crate) fn new(resource: ResourceDefinition, needed: ResourceFlow<T, f32>) -> Self {

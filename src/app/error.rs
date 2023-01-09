@@ -23,9 +23,10 @@ impl ShowError {
 
 /// Holds state for an error message to show to the user, and provides a feedback mechanism for the
 /// user to make a decision on how to handle the error.
-pub(crate) struct ShowError {
+#[derive(Debug)]
+pub struct ShowError {
     /// The error message.
-    pub(crate) error: String,
+    pub error: String,
     /// Simple description for the user
-    pub(crate) context: String,
+    pub context: String,
 }
