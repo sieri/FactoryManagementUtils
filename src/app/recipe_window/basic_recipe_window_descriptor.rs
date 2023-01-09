@@ -1,4 +1,3 @@
-use crate::app::commons::right_click_menu::RightClick;
 use crate::app::commons::CommonsManager;
 use crate::app::coordinates_info::CoordinatesInfo;
 use crate::app::error::ShowError;
@@ -68,9 +67,6 @@ pub struct BasicRecipeWindowDescriptor {
 
     #[serde(skip)]
     errors: Vec<ShowError>,
-
-    #[serde(skip)]
-    right_click: Option<RightClick>,
 }
 
 impl Default for BasicRecipeWindowDescriptor {
@@ -130,27 +126,6 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
         let inner_response = response.unwrap();
         self.window_coordinate.window = inner_response.response.rect;
 
-        if inner_response.response.secondary_clicked() {
-            println!("Hey");
-            commons.save(self);
-            commons.add_tooltip(self.id.with("Tooltip"), "Saved".to_string());
-            //TODO: placeholder code for right click investigate
-            // self.right_click = Some(RightClick::new(
-            //     ctx.pointer_interact_pos()
-            //         .unwrap_or_else(|| Pos2::new(0.0, 0.0)),
-            // ))
-        }
-
-        // if let Some(right_click) = self.right_click.clone() {
-        //     right_click.show(ctx, |ui| {
-        //         if ui.button("save").interact(Sense::click()).clicked() {
-        //             if let Some(saved) = self.save() {
-        //commons.saved_recipes.push(self.title.clone(), saved);
-        //             }
-        //             self.right_click = None;
-        //         }
-        //     })
-        // }
         let mut resp = inner_response.response;
         if commons.has_tooltip(self.temp_tooltip_id) {
             resp = resp.on_hover_ui(|ui| {
@@ -393,7 +368,6 @@ impl BasicRecipeWindowDescriptor {
             stable_out: false,
             window_coordinate: CoordinatesInfo::default(),
             errors: vec![],
-            right_click: None,
         }
     }
 

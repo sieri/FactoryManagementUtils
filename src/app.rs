@@ -466,14 +466,23 @@ impl FactoryManagementUtilsApp {
     fn recipes_list(&mut self, ui: &mut Ui) {
         ui.label("Recipe lists:");
         self.commons.saved_recipes.recipes_list(ui);
-        if ui.button("Add recipes").clicked() {
+        if ui.button("Spawn recipes").clicked() {
             let r = self.commons.saved_recipes.load();
             match r {
                 Ok(data) => self.recipes.push(data),
                 Err(e) => self.commons.add_error(e),
             };
         }
-        ui.label("Right click on a recipe to save it here");
+        ui.horizontal(|ui| {
+            if ui.button("Save all recipes").clicked() {
+                for recipe in self.recipes.iter_mut() {
+                    self.commons.save(recipe);
+                }
+            }
+            if ui.button("Clear all recipes").clicked() {
+                self.commons.saved_recipes.clear();
+            }
+        });
     }
 
     fn resource_generation(&mut self, ui: &mut Ui) {
@@ -562,7 +571,7 @@ impl FactoryManagementUtilsApp {
         });
     }
 
-    fn arrow_management(&mut self, ui: &mut egui::Ui, ctx: &Context, error: bool) {
+    fn arrow_management(&mut self, _ui: &mut egui::Ui, ctx: &Context, error: bool) {
         self.arrows
             .retain_mut(|arrow| arrow.show(&mut self.commons, ctx, !error));
         if self.active_arrow.is_some() {

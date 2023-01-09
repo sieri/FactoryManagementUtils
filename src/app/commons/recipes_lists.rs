@@ -12,6 +12,13 @@ pub struct SavedRecipes {
 }
 
 impl SavedRecipes {
+    pub(crate) fn clear(&mut self) {
+        self.content.clear();
+        self.current = None;
+    }
+}
+
+impl SavedRecipes {
     pub fn recipes_list(&mut self, ui: &mut Ui) {
         let default = ("Select a recipe:".to_string(), "".to_string());
         egui::ComboBox::from_label("")

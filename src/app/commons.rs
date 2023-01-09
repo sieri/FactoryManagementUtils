@@ -1,5 +1,4 @@
 pub mod recipes_lists;
-pub mod right_click_menu;
 
 use crate::app::commons::recipes_lists::SavedRecipes;
 use crate::app::coordinates_info::CoordinatesInfo;
