@@ -155,3 +155,18 @@ impl Display for FlowError {
 }
 
 impl Error for FlowError {}
+
+#[cfg(test)]
+pub mod test {
+    use crate::app::resources::resource_flow::ResourceFlow;
+    use crate::app::resources::{RatePer, ResourceDefinition, Unit};
+
+    pub(crate) fn setup_resource_a() -> ResourceDefinition {
+        ResourceDefinition {
+            name: "Resource A".to_string(),
+            unit: Unit::Piece,
+        }
+    }
+
+    //-------------------Tests-------------------
+}

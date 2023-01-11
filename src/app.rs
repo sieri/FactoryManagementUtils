@@ -9,7 +9,7 @@ use std::collections::LinkedList;
 use std::fs::File;
 
 use crate::app::recipe_window::arrow_flow::ArrowFlow;
-use crate::app::recipe_window::basic_recipe_window_descriptor::BasicRecipeWindowDescriptor;
+use crate::app::recipe_window::basic_recipe_window::BasicRecipeWindow;
 use crate::app::recipe_window::resource_sink::ResourceSink;
 use crate::app::recipe_window::resources_sources::ResourceSource;
 use crate::app::resources::resource_flow::ResourceFlow;
@@ -35,7 +35,7 @@ pub(crate) mod resources;
 pub struct FactoryManagementUtilsApp {
     new_recipe_title: String,
     new_resource_source: String,
-    recipes: Vec<BasicRecipeWindowDescriptor>,
+    recipes: Vec<BasicRecipeWindow>,
     sources: Vec<ResourceSource>,
     sinks: Vec<ResourceSink>,
     commons: CommonsManager,
@@ -543,8 +543,7 @@ impl FactoryManagementUtilsApp {
                 self.commons
                     .add_error(ShowError::new("Need a title to create a window".to_owned()))
             } else {
-                let recipe_window =
-                    BasicRecipeWindowDescriptor::new(self.new_recipe_title.to_owned());
+                let recipe_window = BasicRecipeWindow::new(self.new_recipe_title.to_owned());
                 self.recipes.push(recipe_window);
             }
         }
@@ -571,7 +570,7 @@ impl FactoryManagementUtilsApp {
         });
     }
 
-    fn arrow_management(&mut self, _ui: &mut egui::Ui, ctx: &Context, error: bool) {
+    fn arrow_management(&mut self, _ui: &mut Ui, ctx: &Context, error: bool) {
         self.arrows
             .retain_mut(|arrow| arrow.show(&mut self.commons, ctx, !error));
         if self.active_arrow.is_some() {
@@ -782,6 +781,71 @@ impl FactoryManagementUtilsApp {
             result
         } else {
             true
+        }
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::app::recipe_window::arrow_flow::ArrowFlow;
+    use crate::app::recipe_window::basic_recipe_window::tests::setup_basic_recipe_one_to_one;
+    use crate::app::recipe_window::resource_sink::ResourceSink;
+    use crate::app::recipe_window::resources_sources::ResourceSource;
+    use crate::app::recipe_window::RecipeWindowType;
+    use crate::app::resources::resource_flow::test::setup_flow_resource_a;
+    use crate::app::resources::test::setup_resource_a;
+    use crate::FactoryManagementUtilsApp;
+    use egui::{LayerId, Order};
+    use std::ops::Deref;
+
+    impl FactoryManagementUtilsApp {
+        fn setup_empty_graph() -> Self {
+            let app = FactoryManagementUtilsApp::default();
+            app
+        }
+
+        fn setup_simple_graph() -> Self {
+            let dummy_layer: LayerId = egui::LayerId {
+                order: Order::Background,
+                id: egui::Id::new("dummy"),
+            };
+
+            let mut app = FactoryManagementUtilsApp::default();
+            let mut recipe_1t1 = setup_basic_recipe_one_to_one();
+            let mut sink = ResourceSink::new();
+            let resource_a_flow = setup_flow_resource_a();
+            let mut source = ResourceSource::new(resource_a_flow.resource.name.clone());
+            let mut first_arrow = ArrowFlow::new(
+                resource_a_flow.resource.clone(),
+                recipe_1t1.recipe.id,
+                RecipeWindowType::Basic,
+                dummy_layer,
+                0,
+            );
+            first_arrow.put_end(
+                Some(recipe_1t1.output_resource.first().unwrap().def.clone()),
+                sink.id,
+                RecipeWindowType::Sink,
+                0,
+            );
+            let mut second_arrow = ArrowFlow::new(
+                resource_a_flow.resource.clone(),
+                source.id,
+                RecipeWindowType::Source,
+                dummy_layer,
+                0,
+            );
+            second_arrow.put_end(
+                Some(recipe_1t1.output_resource.first().unwrap().def.clone()),
+                recipe_1t1.recipe.id,
+                RecipeWindowType::Basic,
+                0,
+            );
+            app.recipes.push(recipe_1t1.recipe);
+            app.arrows.push(first_arrow);
+            app.arrows.push(second_arrow);
+
+            app
         }
     }
 }

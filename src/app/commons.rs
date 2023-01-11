@@ -3,7 +3,7 @@ pub mod recipes_lists;
 use crate::app::commons::recipes_lists::SavedRecipes;
 use crate::app::coordinates_info::CoordinatesInfo;
 use crate::app::error::ShowError;
-use crate::app::recipe_window::basic_recipe_window_descriptor::BasicRecipeWindowDescriptor;
+use crate::app::recipe_window::basic_recipe_window::BasicRecipeWindow;
 use crate::app::recipe_window::RecipeWindowType;
 use crate::app::resources::ResourceDefinition;
 use egui::Context;
@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct CommonsManager {
     #[serde(skip)]
     pub window_coordinates: HashMap<egui::Id, CoordinatesInfo>,
@@ -97,26 +98,11 @@ impl CommonsManager {
     }
 
     ///Save recipes
-    pub fn save(&mut self, recipe: &mut BasicRecipeWindowDescriptor) {
+    pub fn save(&mut self, recipe: &mut BasicRecipeWindow) {
         let title = recipe.get_title();
         let data = recipe.save();
         if let Some(data) = data {
             self.saved_recipes.push(title, data);
-        }
-    }
-}
-
-impl Default for CommonsManager {
-    fn default() -> Self {
-        CommonsManager {
-            window_coordinates: Default::default(),
-            arrow_active: false,
-            clicked_start_arrow_info: None,
-            clicked_place_arrow_info: None,
-            recalculate: false,
-            show_errors: Default::default(),
-            show_tooltips: Default::default(),
-            saved_recipes: Default::default(),
         }
     }
 }

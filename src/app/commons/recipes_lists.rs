@@ -1,5 +1,5 @@
 use crate::app::error::ShowError;
-use crate::app::recipe_window::basic_recipe_window_descriptor::BasicRecipeWindowDescriptor;
+use crate::app::recipe_window::basic_recipe_window::BasicRecipeWindow;
 use eframe::epaint::ahash::HashMapExt;
 use egui::epaint::ahash::HashMap;
 use egui::Ui;
@@ -23,7 +23,7 @@ impl SavedRecipes {
         let default = ("Select a recipe:".to_string(), "".to_string());
         egui::ComboBox::from_label("")
             .width(ui.available_width() - 10.0)
-            .selected_text(self.current.as_ref().unwrap_or_else(|| &default).0.clone())
+            .selected_text(self.current.as_ref().unwrap_or(&default).0.clone())
             .show_ui(ui, |ui| {
                 for (title, recipe) in self.content.iter() {
                     ui.selectable_value(
@@ -39,10 +39,10 @@ impl SavedRecipes {
         self.content.insert(title, data);
     }
 
-    pub(crate) fn load(&self) -> Result<BasicRecipeWindowDescriptor, ShowError> {
+    pub(crate) fn load(&self) -> Result<BasicRecipeWindow, ShowError> {
         match &self.current {
             None => Err(ShowError::new("Please select a recipe".to_string())),
-            Some((_, data)) => BasicRecipeWindowDescriptor::load(data.clone()),
+            Some((_, data)) => BasicRecipeWindow::load(data.clone()),
         }
     }
 }

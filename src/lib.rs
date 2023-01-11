@@ -6,4 +6,4 @@ pub(crate) mod utils;
 pub use app::FactoryManagementUtilsApp;
 
 #[cfg(test)]
-mod tests;
+mod test_framework;

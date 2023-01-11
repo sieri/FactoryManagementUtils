@@ -19,7 +19,7 @@ use std::time::Duration;
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)]
 /// Descriptor for a Basic Recipe window, the recipe is directly calculated
-pub struct BasicRecipeWindowDescriptor {
+pub struct BasicRecipeWindow {
     ///Title of the recipe
     pub(crate) title: String,
 
@@ -69,13 +69,13 @@ pub struct BasicRecipeWindowDescriptor {
     errors: Vec<ShowError>,
 }
 
-impl Default for BasicRecipeWindowDescriptor {
+impl Default for BasicRecipeWindow {
     fn default() -> Self {
         Self::new(String::from("Basic Recipe Window"))
     }
 }
 
-impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
+impl RecipeWindowGUI for BasicRecipeWindow {
     fn show(&mut self, commons: &mut CommonsManager, ctx: &egui::Context, enabled: bool) -> bool {
         self.window_coordinate.in_flow.clear();
         self.window_coordinate.out_flow.clear();
@@ -332,7 +332,7 @@ impl RecipeWindowGUI for BasicRecipeWindowDescriptor {
     }
 }
 
-impl BasicRecipeWindowDescriptor {
+impl BasicRecipeWindow {
     /// Create a new basic recipe
     ///
     /// # Arguments
@@ -341,7 +341,7 @@ impl BasicRecipeWindowDescriptor {
     ///
     /// returns: BasicRecipeWindowDescriptor
     pub fn new(title: String) -> Self {
-        let id = BasicRecipeWindowDescriptor::gen_id(title.clone());
+        let id = BasicRecipeWindow::gen_id(title.clone());
         let tooltip_id = id.with("Tooltip");
         let temp_tooltip_id = id.with("Temp Tooltip");
         let resource = ResourceDefinition {
@@ -671,7 +671,7 @@ impl BasicRecipeWindowDescriptor {
     pub(crate) fn load(str: String) -> Result<Self, ShowError> {
         let cursor = Cursor::new(str);
         let mut des = serde_json::Deserializer::from_reader(cursor);
-        let result = BasicRecipeWindowDescriptor::deserialize(&mut des);
+        let result = BasicRecipeWindow::deserialize(&mut des);
 
         match result {
             Ok(mut loaded) => {
@@ -689,13 +689,13 @@ impl BasicRecipeWindowDescriptor {
         self.title.clone()
     }
     fn gen_ids(&mut self) {
-        self.id = BasicRecipeWindowDescriptor::gen_id(self.title.clone());
+        self.id = BasicRecipeWindow::gen_id(self.title.clone());
         self.tooltip_id = self.id.with("Tooltip");
         self.temp_tooltip_id = self.id.with("Temp Tooltip")
     }
 }
 
-impl PartialEq<Self> for BasicRecipeWindowDescriptor {
+impl PartialEq<Self> for BasicRecipeWindow {
     fn eq(&self, other: &Self) -> bool {
         let mut r = true;
         r &= self.id == other.id;
@@ -706,7 +706,7 @@ impl PartialEq<Self> for BasicRecipeWindowDescriptor {
     }
 }
 
-impl BasicRecipeWindowDescriptor {
+impl BasicRecipeWindow {
     pub fn equivalent(&self, other: &Self) -> bool {
         let mut r = true;
         r &= self.title == other.title;
@@ -724,4 +724,190 @@ impl BasicRecipeWindowDescriptor {
     }
 }
 
-impl Eq for BasicRecipeWindowDescriptor {}
+impl Eq for BasicRecipeWindow {}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::app::recipe_window;
+    use crate::app::recipe_window::basic_recipe_window::BasicRecipeWindow;
+    use crate::app::recipe_window::test::setup_resource_a_input;
+    use crate::app::recipe_window::RecipeWindowGUI;
+    use crate::app::resources::{ResourceDefinition, Unit};
+    use crate::test_framework as t;
+    use crate::test_framework::{TestError, TestResult};
+    use serde::{Deserialize, Serialize};
+    use std::io::Cursor;
+
+    pub(crate) struct RecipeResourceInfos {
+        pub def: ResourceDefinition,
+        pub amount: f32,
+        pub amount_per_cycle: usize,
+    }
+
+    pub(crate) struct TestInfo {
+        pub recipe: BasicRecipeWindow,
+        pub input_resource: Vec<RecipeResourceInfos>,
+        pub output_resource: Vec<RecipeResourceInfos>,
+    }
+
+    pub(crate) fn setup_basic_recipe_window_empty() -> TestInfo {
+        let title = "Test Window Empty";
+        TestInfo {
+            recipe: BasicRecipeWindow::new(title.to_string()),
+            output_resource: vec![RecipeResourceInfos {
+                def: ResourceDefinition {
+                    name: title.to_string(),
+                    unit: Unit::Piece,
+                },
+                amount: 1.0,
+                amount_per_cycle: 1,
+            }],
+
+            input_resource: vec![],
+        }
+    }
+
+    pub(crate) fn setup_basic_recipe_one_to_one() -> TestInfo {
+        let title = "Test Window One To One";
+        let mut w = BasicRecipeWindow::new(title.to_string());
+        let resource_a = setup_resource_a_input();
+        w.inputs.push(resource_a.manage_flow);
+
+        TestInfo {
+            recipe: w,
+            output_resource: vec![RecipeResourceInfos {
+                def: ResourceDefinition {
+                    name: title.to_string(),
+                    unit: Unit::Piece,
+                },
+                amount: 1.0,
+                amount_per_cycle: 1,
+            }],
+
+            input_resource: vec![RecipeResourceInfos {
+                def: resource_a.flow.resource,
+                amount: resource_a.flow.amount,
+                amount_per_cycle: resource_a.flow.amount_per_cycle,
+            }],
+        }
+    }
+
+    pub(crate) fn setup_list_of_window() -> [TestInfo; 2] {
+        [
+            setup_basic_recipe_window_empty(),
+            setup_basic_recipe_one_to_one(),
+        ]
+    }
+
+    fn test_tooltip(window: BasicRecipeWindow, expected: String) -> TestResult {
+        t::assert_equal(
+            expected,
+            window.generate_tooltip().unwrap(),
+            "Tooltip doesn't match",
+        )
+    }
+
+    //-------------------Tests-------------------
+
+    #[test]
+    #[ignore = "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"] //TODO: FIX
+    fn test_tooltip_empty() -> TestResult {
+        let sample_window = setup_basic_recipe_window_empty();
+        let expected = recipe_window::test::build_tooltip(
+            [
+                "Test Window Empty",
+                "Inputs: |Outputs:            ",
+                "        |Test Window Empty: 1",
+                "        |               1.00/s",
+            ]
+            .as_slice(),
+        );
+        test_tooltip(sample_window.recipe, expected)
+    }
+
+    #[test]
+    #[ignore = "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"] //TODO: FIX
+    fn test_tooltip_one_to_one() -> TestResult {
+        let sample_window = setup_basic_recipe_one_to_one();
+        let expected = recipe_window::test::build_tooltip(
+            [
+                "Test Window One To One",
+                "Inputs:      |Outputs:                 ",
+                "Resource A: 2|Test Window One To One: 1",
+                "     2.00/min|                   1.00/s",
+            ]
+            .as_slice(),
+        );
+        test_tooltip(sample_window.recipe, expected)
+    }
+
+    #[test]
+    fn test_serialization() -> TestResult {
+        let originals = setup_list_of_window();
+        let mut strings = Vec::new();
+        for original in originals.iter() {
+            let recipe = &original.recipe;
+            let mut vec = vec![0u8];
+            let s = Cursor::new(&mut vec);
+            let result = recipe.serialize(&mut serde_json::Serializer::new(s));
+
+            if let Err(e) = result {
+                return Err(TestError {
+                    text: format!("serialization error {e}"),
+                });
+            }
+            strings.push(vec)
+        }
+
+        let mut deserializes = Vec::new();
+        for string in strings {
+            let cursor = Cursor::new(&string);
+            let mut des = serde_json::Deserializer::from_reader(cursor);
+            let result = BasicRecipeWindow::deserialize(&mut des);
+            if let Err(e) = result {
+                return Err(TestError {
+                    text: format!("deserialization error {e}"),
+                });
+            }
+            deserializes.push(result.unwrap());
+        }
+
+        for (original, deserialized) in originals.iter().zip(deserializes.iter()) {
+            let recipe = &original.recipe;
+            t::assert_equal(recipe, deserialized, "Deserialization doesn't match")?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_save_and_load() -> TestResult {
+        let mut originals = setup_list_of_window();
+        let mut saved = vec![];
+        for original in originals.iter_mut() {
+            let mut recipe = &mut original.recipe;
+            saved.push(recipe.save().expect("Not saved"));
+        }
+        let mut load = vec![];
+        for s in saved {
+            load.push(BasicRecipeWindow::load(s).expect("Not loaded"))
+        }
+
+        for (original, loaded) in originals.iter().zip(load.iter()) {
+            let recipe = &original.recipe;
+            t::assert_custom(
+                recipe,
+                loaded,
+                "Original and loaded should be are not equivalent",
+                |a, b| a.equivalent(b),
+            )?;
+            t::assert_not_equal(
+                recipe,
+                loaded,
+                "Original and loaded should be different in ids",
+            )?;
+        }
+
+        Ok(())
+    }
+}

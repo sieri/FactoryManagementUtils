@@ -206,3 +206,35 @@ pub(crate) trait ManageResourceFlow<T: Number> {
     ///reset the flows
     fn reset(&mut self);
 }
+
+#[cfg(test)]
+pub mod test {
+    use crate::app::resources::resource_flow::ResourceFlow;
+    use crate::app::resources::test::setup_resource_a;
+    use crate::app::resources::{RatePer, ResourceDefinition, Unit};
+
+    pub(crate) struct TestInfo {
+        pub flow: ResourceFlow<usize, f32>,
+        pub resource: ResourceDefinition,
+        pub amount_per_cycle: usize,
+        pub amount: f32,
+        pub rate: RatePer,
+    }
+
+    pub(crate) fn setup_flow_resource_a() -> TestInfo {
+        let resource = setup_resource_a();
+        let amount_per_cycle = 2;
+        let amount = 2.0f32;
+        let rate = RatePer::Minute;
+
+        TestInfo {
+            flow: ResourceFlow::new(&resource, amount_per_cycle, amount, rate),
+            resource,
+            amount_per_cycle,
+            amount,
+            rate,
+        }
+    }
+
+    //-------------------Tests-------------------
+}
