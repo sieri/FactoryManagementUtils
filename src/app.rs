@@ -668,7 +668,7 @@ impl eframe::App for FactoryManagementUtilsApp {
 
 impl FactoryManagementUtilsApp {
     ///Show a debug area
-    fn debug(&mut self, ui: &mut egui::Ui) {
+    fn debug(&mut self, ui: &mut Ui) {
         if cfg!(debug_assertions) {
             ui.separator();
 
@@ -793,41 +793,59 @@ pub mod tests {
     use crate::app::recipe_window::resources_sources::ResourceSource;
     use crate::app::recipe_window::RecipeWindowType;
     use crate::app::resources::resource_flow::test::setup_flow_resource_a;
-    use crate::app::resources::test::setup_resource_a;
+    use eframe::epaint::ahash::HashMapExt;
+
+    use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
+    use crate::app::resources::{RatePer, ResourceDefinition};
+    use crate::test_framework as t;
+    use crate::test_framework::TestResult;
     use crate::FactoryManagementUtilsApp;
+    use egui::epaint::ahash::HashMap;
     use egui::{LayerId, Order};
-    use std::ops::Deref;
+
+    pub(crate) struct TestInfo {
+        pub name: String,
+        pub app: FactoryManagementUtilsApp,
+        pub inputs: Vec<ResourceFlow<usize, f32>>,
+        pub outputs: Vec<ResourceFlow<usize, f32>>,
+    }
 
     impl FactoryManagementUtilsApp {
-        fn setup_empty_graph() -> Self {
-            let app = FactoryManagementUtilsApp::default();
-            app
+        pub(crate) fn setup_empty_graph() -> TestInfo {
+            TestInfo {
+                name: "empty graph".to_string(),
+                app: Default::default(),
+                inputs: vec![],
+                outputs: vec![],
+            }
         }
 
-        fn setup_simple_graph() -> Self {
-            let dummy_layer: LayerId = egui::LayerId {
+        pub(crate) fn setup_simple_graph() -> TestInfo {
+            let dummy_layer: LayerId = LayerId {
                 order: Order::Background,
                 id: egui::Id::new("dummy"),
             };
 
             let mut app = FactoryManagementUtilsApp::default();
-            let mut recipe_1t1 = setup_basic_recipe_one_to_one();
-            let mut sink = ResourceSink::new();
+            let recipe_1t1 = setup_basic_recipe_one_to_one();
+            let sink = ResourceSink::new();
             let resource_a_flow = setup_flow_resource_a();
-            let mut source = ResourceSource::new(resource_a_flow.resource.name.clone());
+            let source = ResourceSource::new(resource_a_flow.resource.name.clone());
             let mut first_arrow = ArrowFlow::new(
-                resource_a_flow.resource.clone(),
+                recipe_1t1.output_resource.first().unwrap().def.clone(),
                 recipe_1t1.recipe.id,
                 RecipeWindowType::Basic,
                 dummy_layer,
                 0,
             );
-            first_arrow.put_end(
-                Some(recipe_1t1.output_resource.first().unwrap().def.clone()),
-                sink.id,
-                RecipeWindowType::Sink,
-                0,
-            );
+            first_arrow
+                .put_end(
+                    Some(recipe_1t1.output_resource.first().unwrap().def.clone()),
+                    sink.id,
+                    RecipeWindowType::Sink,
+                    0,
+                )
+                .expect("arrow error");
             let mut second_arrow = ArrowFlow::new(
                 resource_a_flow.resource.clone(),
                 source.id,
@@ -835,17 +853,107 @@ pub mod tests {
                 dummy_layer,
                 0,
             );
-            second_arrow.put_end(
-                Some(recipe_1t1.output_resource.first().unwrap().def.clone()),
-                recipe_1t1.recipe.id,
-                RecipeWindowType::Basic,
-                0,
-            );
+            second_arrow
+                .put_end(
+                    Some(resource_a_flow.resource.clone()),
+                    recipe_1t1.recipe.id,
+                    RecipeWindowType::Basic,
+                    0,
+                )
+                .expect("arrow error");
             app.recipes.push(recipe_1t1.recipe);
             app.arrows.push(first_arrow);
             app.arrows.push(second_arrow);
-
-            app
+            app.sources.push(source);
+            app.sinks.push(sink);
+            let input = recipe_1t1.input_resource.first().unwrap();
+            let output = recipe_1t1.output_resource.first().unwrap();
+            TestInfo {
+                name: "one to one".to_string(),
+                app,
+                inputs: vec![ResourceFlow::new(
+                    &input.def.clone(),
+                    input.amount_per_cycle,
+                    input.amount,
+                    input.rate,
+                )],
+                outputs: vec![ResourceFlow::new(
+                    &output.def.clone(),
+                    output.amount_per_cycle,
+                    output.amount,
+                    output.rate,
+                )],
+            }
         }
+
+        fn get_calc_sources(&self) -> HashMap<ResourceDefinition, (f32, RatePer)> {
+            let mut result = HashMap::new();
+            for source in self.sources.iter() {
+                let flow = source.output.total_out();
+                result.insert(flow.resource, (flow.amount, flow.rate));
+            }
+
+            result
+        }
+
+        fn get_calc_sinks(&self) -> HashMap<ResourceDefinition, (f32, RatePer)> {
+            let mut result = HashMap::new();
+            for sink in self.sinks.iter() {
+                let flow = sink.sink.as_ref().unwrap().total_in();
+                result.insert(flow.resource, (flow.amount, flow.rate));
+            }
+
+            result
+        }
+    }
+    // ------------------------------- Test -------------------------------
+
+    #[test]
+    fn test_calculation() -> TestResult {
+        let test_infos = setup_test_graphs();
+
+        for test_info in test_infos {
+            println!("Start test on graph: {}", test_info.name);
+            let mut app = test_info.app;
+            app.calculate();
+            let calculated_inputs = app.get_calc_sources();
+            println!("Calculated: {:?}", calculated_inputs);
+            for input in test_info.inputs.iter() {
+                let resource = input.resource.clone();
+                println!("Resource{}", resource);
+                let calculated = calculated_inputs
+                    .get(&resource)
+                    .expect("no data in the resource");
+                t::assert_equal(
+                    input.amount,
+                    calculated.0,
+                    "Amount of an input doesn't match",
+                )?;
+                t::assert_equal(input.rate, calculated.1, "Rate of an input doesn't match")?;
+            }
+            let calculated_outputs = app.get_calc_sinks();
+            for output in test_info.outputs.iter() {
+                let resource = output.resource.clone();
+                let calculated = calculated_outputs
+                    .get(&resource)
+                    .expect("no data in the resource");
+                t::assert_equal(
+                    output.amount,
+                    calculated.0,
+                    "Amount of an output doesn't match",
+                )?;
+                t::assert_equal(output.rate, calculated.1, "Rate of an output doesn't match")?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn setup_test_graphs() -> [TestInfo; 2] {
+        let test_infos = [
+            FactoryManagementUtilsApp::setup_empty_graph(),
+            FactoryManagementUtilsApp::setup_simple_graph(),
+        ];
+        test_infos
     }
 }

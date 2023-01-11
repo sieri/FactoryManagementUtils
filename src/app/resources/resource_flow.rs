@@ -211,7 +211,7 @@ pub(crate) trait ManageResourceFlow<T: Number> {
 pub mod test {
     use crate::app::resources::resource_flow::ResourceFlow;
     use crate::app::resources::test::setup_resource_a;
-    use crate::app::resources::{RatePer, ResourceDefinition, Unit};
+    use crate::app::resources::{RatePer, ResourceDefinition};
 
     pub(crate) struct TestInfo {
         pub flow: ResourceFlow<usize, f32>,

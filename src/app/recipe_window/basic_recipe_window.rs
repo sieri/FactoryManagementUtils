@@ -732,7 +732,7 @@ pub mod tests {
     use crate::app::recipe_window::basic_recipe_window::BasicRecipeWindow;
     use crate::app::recipe_window::test::setup_resource_a_input;
     use crate::app::recipe_window::RecipeWindowGUI;
-    use crate::app::resources::{ResourceDefinition, Unit};
+    use crate::app::resources::{RatePer, ResourceDefinition, Unit};
     use crate::test_framework as t;
     use crate::test_framework::{TestError, TestResult};
     use serde::{Deserialize, Serialize};
@@ -742,6 +742,7 @@ pub mod tests {
         pub def: ResourceDefinition,
         pub amount: f32,
         pub amount_per_cycle: usize,
+        pub rate: RatePer,
     }
 
     pub(crate) struct TestInfo {
@@ -761,6 +762,7 @@ pub mod tests {
                 },
                 amount: 1.0,
                 amount_per_cycle: 1,
+                rate: RatePer::Second,
             }],
 
             input_resource: vec![],
@@ -782,12 +784,14 @@ pub mod tests {
                 },
                 amount: 1.0,
                 amount_per_cycle: 1,
+                rate: RatePer::Second,
             }],
 
             input_resource: vec![RecipeResourceInfos {
                 def: resource_a.flow.resource,
                 amount: resource_a.flow.amount,
                 amount_per_cycle: resource_a.flow.amount_per_cycle,
+                rate: resource_a.flow.rate,
             }],
         }
     }
@@ -885,7 +889,7 @@ pub mod tests {
         let mut originals = setup_list_of_window();
         let mut saved = vec![];
         for original in originals.iter_mut() {
-            let mut recipe = &mut original.recipe;
+            let recipe = &mut original.recipe;
             saved.push(recipe.save().expect("Not saved"));
         }
         let mut load = vec![];

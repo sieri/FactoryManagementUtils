@@ -12,7 +12,7 @@ impl Debug for TestError {
 
 pub type TestResult = Result<(), TestError>;
 
-pub fn assert_equal<T: Eq + Debug>(expected: T, obtained: T, msg: &str) -> TestResult {
+pub fn assert_equal<T: PartialEq + Debug>(expected: T, obtained: T, msg: &str) -> TestResult {
     if expected != obtained {
         return Err(TestError {
             text: format!(" Equality: {msg}\n\texpected:[{expected:?}]\n\tobtained:[{obtained:?}]"),
@@ -20,7 +20,7 @@ pub fn assert_equal<T: Eq + Debug>(expected: T, obtained: T, msg: &str) -> TestR
     }
     Ok(())
 }
-pub fn assert_not_equal<T: Eq + Debug>(control: T, obtained: T, msg: &str) -> TestResult {
+pub fn assert_not_equal<T: PartialEq + Debug>(control: T, obtained: T, msg: &str) -> TestResult {
     if control == obtained {
         return Err(TestError {
             text: format!(" Inequality: {msg}\n\tcontrol:[{control:?}]\n\tobtained:[{obtained:?}]"),

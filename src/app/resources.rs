@@ -19,7 +19,9 @@ const MINUTES_TO_HOURS: f32 = 60.0;
 /// * LITER volume measurement
 /// * KG weight measurement
 #[allow(dead_code)]
-#[derive(Debug, PartialEq, PartialOrd, Copy, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(
+    Debug, PartialEq, Eq, Hash, PartialOrd, Copy, Clone, serde::Deserialize, serde::Serialize,
+)]
 pub enum Unit {
     Piece,
     Liter,
@@ -78,7 +80,7 @@ impl Display for RatePer {
 }
 
 ///A type of a resource
-#[derive(Debug, PartialEq, PartialOrd, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ResourceDefinition {
     ///The name of the resource, should be unique
     pub name: String,
@@ -158,8 +160,8 @@ impl Error for FlowError {}
 
 #[cfg(test)]
 pub mod test {
-    use crate::app::resources::resource_flow::ResourceFlow;
-    use crate::app::resources::{RatePer, ResourceDefinition, Unit};
+
+    use crate::app::resources::{ResourceDefinition, Unit};
 
     pub(crate) fn setup_resource_a() -> ResourceDefinition {
         ResourceDefinition {
