@@ -422,13 +422,13 @@ impl BaseRecipeWindow {
         commons: &mut CommonsManager,
         ctx: &Context,
         enabled: bool,
-        mut open: &mut bool,
+        open: &mut bool,
         title: String,
     ) -> Option<InnerResponse<Option<()>>> {
         let response = egui::Window::new(title)
             .id(self.id)
             .enabled(enabled)
-            .open(&mut open)
+            .open(open)
             .show(ctx, |ui| {
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {

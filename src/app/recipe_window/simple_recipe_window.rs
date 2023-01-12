@@ -2,7 +2,7 @@ use crate::app::commons::CommonsManager;
 use crate::app::error::ShowError;
 use crate::app::recipe_window::base_recipe_window::{BaseRecipeWindow, RecipeWindowUser};
 use crate::app::recipe_window::RecipeWindowGUI;
-use crate::utils::gen_id;
+
 use egui::Context;
 use std::fmt::Error;
 
@@ -68,12 +68,12 @@ impl RecipeWindowUser<'static> for SimpleRecipeWindow {
 #[cfg(test)]
 pub mod tests {
     use crate::app::recipe_window;
-    use crate::app::recipe_window::base_recipe_window::{BaseRecipeWindow, RecipeWindowUser};
+    use crate::app::recipe_window::base_recipe_window::{RecipeWindowUser};
     use crate::app::recipe_window::simple_recipe_window::SimpleRecipeWindow;
     use crate::app::recipe_window::test::setup_resource_a_input;
     use crate::app::recipe_window::RecipeWindowGUI;
     use crate::app::resources::{RatePer, ResourceDefinition, Unit};
-    use crate::test_framework as t;
+    
     use crate::test_framework::{TestError, TestResult};
     use serde::{Deserialize, Serialize};
     use std::io::Cursor;
