@@ -8,7 +8,7 @@ use crate::app::resources::RatePer;
 use egui::Widget;
 use std::fmt::Write;
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub(crate) struct ResourceSink {
     ///unique id of the resource
     pub(crate) id: egui::Id,

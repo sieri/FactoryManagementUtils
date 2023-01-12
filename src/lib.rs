@@ -3,7 +3,7 @@
 mod app;
 pub(crate) mod utils;
 
-pub use app::FactoryManagementUtilsApp;
+pub use app::FactoryManagementApp;
 
 #[cfg(test)]
 mod test_framework;

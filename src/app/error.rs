@@ -23,7 +23,7 @@ impl ShowError {
 
 /// Holds state for an error message to show to the user, and provides a feedback mechanism for the
 /// user to make a decision on how to handle the error.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ShowError {
     /// The error message.
     pub error: String,

@@ -16,7 +16,7 @@ use std::fmt::{Debug, Write};
 use std::io::Cursor;
 use std::time::Duration;
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 #[serde(default)]
 /// Descriptor for a Basic Recipe window, the recipe is directly calculated
 pub struct BasicRecipeWindow {
@@ -29,7 +29,7 @@ pub struct BasicRecipeWindow {
     ///unique id for the tooltip
     pub(crate) tooltip_id: egui::Id,
 
-    //unique id for the temporary tooltip
+    ///unique id for the temporary tooltip
     temp_tooltip_id: egui::Id,
 
     ///list of inputs
@@ -803,12 +803,12 @@ pub mod tests {
         ]
     }
 
-    fn test_tooltip(window: BasicRecipeWindow, expected: String) -> TestResult {
-        t::assert_equal(
+    fn perform_test_tooltip(window: BasicRecipeWindow, expected: String) {
+        assert_eq!(
             expected,
             window.generate_tooltip().unwrap(),
             "Tooltip doesn't match",
-        )
+        );
     }
 
     //-------------------Tests-------------------
@@ -826,7 +826,8 @@ pub mod tests {
             ]
             .as_slice(),
         );
-        test_tooltip(sample_window.recipe, expected)
+        perform_test_tooltip(sample_window.recipe, expected);
+        Ok(())
     }
 
     #[test]
@@ -842,7 +843,8 @@ pub mod tests {
             ]
             .as_slice(),
         );
-        test_tooltip(sample_window.recipe, expected)
+        perform_test_tooltip(sample_window.recipe, expected);
+        Ok(())
     }
 
     #[test]
@@ -878,7 +880,7 @@ pub mod tests {
 
         for (original, deserialized) in originals.iter().zip(deserializes.iter()) {
             let recipe = &original.recipe;
-            t::assert_equal(recipe, deserialized, "Deserialization doesn't match")?;
+            assert_eq!(recipe, deserialized, "Deserialization doesn't match");
         }
 
         Ok(())
@@ -905,11 +907,10 @@ pub mod tests {
                 "Original and loaded should be are not equivalent",
                 |a, b| a.equivalent(b),
             )?;
-            t::assert_not_equal(
-                recipe,
-                loaded,
+            assert_eq!(
+                recipe, loaded,
                 "Original and loaded should be different in ids",
-            )?;
+            );
         }
 
         Ok(())

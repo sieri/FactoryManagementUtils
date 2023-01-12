@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) mod arrow_flow;
 pub(crate) mod basic_recipe_window;
+pub(crate) mod compound_recipe_window;
 pub(crate) mod resource_adding_window;
 pub(crate) mod resource_sink;
 pub(crate) mod resources_sources;
@@ -35,6 +36,7 @@ pub trait RecipeWindowGUI {
 #[derive(serde::Deserialize, serde::Serialize, Copy, Clone)]
 pub enum RecipeWindowType {
     Basic,
+    Compound,
     Source,
     Sink,
 }

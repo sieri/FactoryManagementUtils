@@ -8,7 +8,7 @@ use crate::app::resources::{RatePer, ResourceDefinition, Unit};
 use egui::Widget;
 use std::fmt::Write;
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct ResourceSource {
     ///unique id of the resource
     pub(crate) id: egui::Id,
