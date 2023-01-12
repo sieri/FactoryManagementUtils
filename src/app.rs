@@ -10,10 +10,10 @@ use std::fs::File;
 
 use crate::app::recipe_graph::RecipeGraph;
 use crate::app::recipe_window::arrow_flow::ArrowFlow;
-use crate::app::recipe_window::basic_recipe_window::BasicRecipeWindow;
 use crate::app::recipe_window::compound_recipe_window::CompoundRecipeWindow;
 use crate::app::recipe_window::resource_sink::ResourceSink;
 use crate::app::recipe_window::resources_sources::ResourceSource;
+use crate::app::recipe_window::simple_recipe_window::SimpleRecipeWindow;
 use crate::utils::Io;
 use commons::CommonsManager;
 use eframe::Frame;
@@ -249,13 +249,13 @@ impl FactoryManagementApp {
         if ui.button("Spawn recipes").clicked() {
             let r = self.commons.saved_recipes.load();
             match r {
-                Ok(data) => self.current_graph.recipes.push(data),
+                Ok(data) => self.current_graph.simple_recipes.push(data),
                 Err(e) => self.commons.add_error(e),
             };
         }
         ui.horizontal(|ui| {
             if ui.button("Save all recipes").clicked() {
-                for recipe in self.current_graph.recipes.iter_mut() {
+                for recipe in self.current_graph.simple_recipes.iter_mut() {
                     self.commons.save(recipe);
                 }
             }
@@ -323,8 +323,8 @@ impl FactoryManagementApp {
                 self.commons
                     .add_error(ShowError::new("Need a title to create a window".to_owned()))
             } else {
-                let recipe_window = BasicRecipeWindow::new(self.new_recipe_title.to_owned());
-                self.current_graph.recipes.push(recipe_window);
+                let recipe_window = SimpleRecipeWindow::new(self.new_recipe_title.to_owned());
+                self.current_graph.simple_recipes.push(recipe_window);
             }
         }
     }
@@ -340,7 +340,7 @@ impl FactoryManagementApp {
             });
 
             self.current_graph
-                .recipes
+                .simple_recipes
                 .retain_mut(|recipe| recipe.show(&mut self.commons, ctx, !error));
             self.current_graph
                 .compound_recipes
@@ -466,7 +466,7 @@ impl FactoryManagementApp {
                     ui.label("Arrow");
                     egui::DragValue::new(&mut arrow_count).ui(ui);
                 });
-                let mut recipe_count = self.current_graph.recipes.len();
+                let mut recipe_count = self.current_graph.simple_recipes.len();
                 ui.horizontal(|ui| {
                     ui.label("Recipe");
                     egui::DragValue::new(&mut recipe_count).ui(ui);
@@ -488,9 +488,13 @@ impl FactoryManagementApp {
 
                 if ui.button("Update all").clicked() {
                     self.current_graph.calculate();
-                    for recipe in self.current_graph.recipes.iter_mut() {
-                        recipe.update_flow(Io::Input).expect("Update failure input");
+                    for recipe in self.current_graph.simple_recipes.iter_mut() {
                         recipe
+                            .inner_recipe
+                            .update_flow(Io::Input)
+                            .expect("Update failure input");
+                        recipe
+                            .inner_recipe
                             .update_flow(Io::Output)
                             .expect("Update failure output");
                     }

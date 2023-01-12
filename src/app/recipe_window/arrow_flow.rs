@@ -1,6 +1,7 @@
 use crate::app::commons::CommonsManager;
 use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::app::resources::{FlowError, FlowErrorType, ResourceDefinition};
+use crate::utils::gen_id;
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct ArrowFlow {
@@ -100,7 +101,7 @@ impl ArrowFlow {
         flow_index: usize,
     ) -> Self {
         ArrowFlow {
-            id: Self::gen_id(format!("Flow{start_flow:?}")),
+            id: gen_id(format!("Flow{start_flow:?}")),
             state: ArrowUsageState::Active,
             resource,
             start_flow_window: start_flow,

@@ -3,7 +3,8 @@ pub mod recipes_lists;
 use crate::app::commons::recipes_lists::SavedRecipes;
 use crate::app::coordinates_info::CoordinatesInfo;
 use crate::app::error::ShowError;
-use crate::app::recipe_window::basic_recipe_window::BasicRecipeWindow;
+use crate::app::recipe_window::base_recipe_window::RecipeWindowUser;
+use crate::app::recipe_window::simple_recipe_window::SimpleRecipeWindow;
 use crate::app::recipe_window::RecipeWindowType;
 use crate::app::resources::ResourceDefinition;
 use egui::Context;
@@ -98,8 +99,8 @@ impl CommonsManager {
     }
 
     ///Save recipes
-    pub fn save(&mut self, recipe: &mut BasicRecipeWindow) {
-        let title = recipe.get_title();
+    pub fn save(&mut self, recipe: &mut SimpleRecipeWindow) {
+        let title = recipe.inner_recipe.get_title();
         let data = recipe.save();
         if let Some(data) = data {
             self.saved_recipes.push(title, data);

@@ -5,6 +5,7 @@ use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::app::resources::recipe_input_resource::RecipeInputResource;
 use crate::app::resources::resource_flow::ManageResourceFlow;
 use crate::app::resources::RatePer;
+use crate::utils::gen_id;
 use egui::Widget;
 use std::fmt::Write;
 
@@ -23,7 +24,7 @@ pub(crate) struct ResourceSink {
 impl ResourceSink {
     pub(crate) fn new() -> Self {
         Self {
-            id: Self::gen_id("ResourceSink".to_string()),
+            id: gen_id("ResourceSink".to_string()),
             sink: None,
             window_coordinate: Default::default(),
         }

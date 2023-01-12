@@ -1,14 +1,14 @@
 use crate::app::commons::CommonsManager;
 use crate::app::resources::RatePer;
 use std::f32;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) mod arrow_flow;
-pub(crate) mod basic_recipe_window;
+pub(crate) mod base_recipe_window;
 pub(crate) mod compound_recipe_window;
 pub(crate) mod resource_adding_window;
 pub(crate) mod resource_sink;
 pub(crate) mod resources_sources;
+pub(crate) mod simple_recipe_window;
 
 pub trait RecipeWindowGUI {
     /// Show a recipe window on the frame
@@ -22,21 +22,13 @@ pub trait RecipeWindowGUI {
     ///
     fn show(&mut self, commons: &mut CommonsManager, ctx: &egui::Context, enabled: bool) -> bool;
 
-    fn gen_id(name: String) -> egui::Id {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        egui::Id::new(name + &*format!("{timestamp}"))
-    }
-
     fn generate_tooltip(&self) -> Result<String, std::fmt::Error>;
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Copy, Clone)]
 pub enum RecipeWindowType {
-    Basic,
-    Compound,
+    SimpleRecipe,
+    CompoundRecipe,
     Source,
     Sink,
 }

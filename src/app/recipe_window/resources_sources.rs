@@ -5,6 +5,7 @@ use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::app::resources::recipe_output_resource::RecipeOutputResource;
 use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
 use crate::app::resources::{RatePer, ResourceDefinition, Unit};
+use crate::utils::gen_id;
 use egui::Widget;
 use std::fmt::Write;
 
@@ -112,7 +113,7 @@ impl ResourceSource {
             unit: Unit::Piece,
         };
         Self {
-            id: Self::gen_id(resource),
+            id: gen_id(resource),
             output: RecipeOutputResource::new(
                 r.clone(),
                 ResourceFlow::new(&r, 10, 1.0f32, RatePer::Tick),

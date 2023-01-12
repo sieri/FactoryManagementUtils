@@ -1,5 +1,6 @@
 use crate::app::error::ShowError;
-use crate::app::recipe_window::basic_recipe_window::BasicRecipeWindow;
+use crate::app::recipe_window::base_recipe_window::RecipeWindowUser;
+use crate::app::recipe_window::simple_recipe_window::SimpleRecipeWindow;
 use eframe::epaint::ahash::HashMapExt;
 use egui::epaint::ahash::HashMap;
 use egui::Ui;
@@ -39,10 +40,10 @@ impl SavedRecipes {
         self.content.insert(title, data);
     }
 
-    pub(crate) fn load(&self) -> Result<BasicRecipeWindow, ShowError> {
+    pub(crate) fn load(&self) -> Result<SimpleRecipeWindow, ShowError> {
         match &self.current {
             None => Err(ShowError::new("Please select a recipe".to_string())),
-            Some((_, data)) => BasicRecipeWindow::load(data.clone()),
+            Some((_, data)) => SimpleRecipeWindow::load(data.clone()),
         }
     }
 }

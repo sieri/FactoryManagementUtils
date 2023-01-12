@@ -5,7 +5,7 @@ use crate::app::resources::recipe_output_resource::RecipeOutputResource;
 use crate::app::resources::resource_flow::ResourceFlow;
 use crate::app::resources::ManageFlow::{RecipeInput, RecipeOutput};
 use crate::app::resources::{ManageFlow, RatePer, ResourceDefinition, Unit};
-use crate::utils::{Io, Number};
+use crate::utils::{gen_id, Io, Number};
 use egui::Widget;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Eq, PartialEq, Clone)]
@@ -39,7 +39,7 @@ impl<T: Number> ResourceAddingWindow<T> {
     pub fn new(title: String, dir: Io) -> Self {
         Self {
             title: title.clone(),
-            id: Self::gen_id(title),
+            id: gen_id(title),
             resource_name: "".to_string(),
             amount_per_cycle: T::one(),
             amount_per_time: T::one(),

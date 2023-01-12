@@ -1,6 +1,7 @@
 use num_traits::{Float, Num, NumCast, One, ToPrimitive};
 use std::fmt::Display;
 use std::ops::AddAssign;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 ///A trait for any number needed
 pub trait Number:
@@ -98,4 +99,12 @@ mod tests {
             assert_eq!(result, format!("-{}", *expected));
         }
     }
+}
+
+pub fn gen_id(name: String) -> egui::Id {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    egui::Id::new(name + &*format!("{timestamp}"))
 }
