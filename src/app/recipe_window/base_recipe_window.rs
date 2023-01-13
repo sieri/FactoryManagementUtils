@@ -65,6 +65,9 @@ pub struct BaseRecipeWindow {
     ///Configurations of the features shown
     config: ConfigFeatures,
 
+    ///the type of the recipe
+    recipe_type: RecipeWindowType,
+
     #[serde(skip)]
     window_coordinate: CoordinatesInfo,
 
@@ -94,6 +97,7 @@ impl Default for BaseRecipeWindow {
                 show_power: true,
                 show_time: true,
             },
+            RecipeWindowType::SimpleRecipe,
         )
     }
 }
@@ -106,7 +110,7 @@ impl BaseRecipeWindow {
     /// * `title`: Title of the recipe
     ///
     /// returns: BasicRecipeWindowDescriptor
-    pub fn new(title: String, config: ConfigFeatures) -> Self {
+    pub fn new(title: String, config: ConfigFeatures, recipe_type: RecipeWindowType) -> Self {
         let id = gen_id(title.clone());
         let tooltip_id = id.with("Tooltip");
         let temp_tooltip_id = id.with("Temp Tooltip");
@@ -133,6 +137,7 @@ impl BaseRecipeWindow {
             stable_in: false,
             stable_out: false,
             config,
+            recipe_type,
             window_coordinate: CoordinatesInfo::default(),
             errors: vec![],
         }
@@ -261,7 +266,7 @@ impl BaseRecipeWindow {
                             Some(resource.clone()),
                             self.id,
                             resource_flow_index,
-                            RecipeWindowType::SimpleRecipe,
+                            self.recipe_type,
                         ));
                     }
                 }
@@ -297,7 +302,7 @@ impl BaseRecipeWindow {
                             self.id,
                             ui.layer_id(),
                             resource_flow_index,
-                            RecipeWindowType::SimpleRecipe,
+                            self.recipe_type,
                         ));
                     }
                 }
@@ -831,6 +836,7 @@ pub(crate) mod tests {
     use crate::app::resources::resource_flow::ResourceFlow;
     use crate::app::resources::{RatePer, ResourceDefinition};
 
+    #[derive(Debug)]
     pub(crate) struct RecipeResourceInfos {
         pub def: ResourceDefinition,
         pub amount: f32,

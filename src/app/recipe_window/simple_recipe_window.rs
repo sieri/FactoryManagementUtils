@@ -3,7 +3,7 @@ use crate::app::error::ShowError;
 use crate::app::recipe_window::base_recipe_window::{
     BaseRecipeWindow, ConfigFeatures, RecipeWindowUser,
 };
-use crate::app::recipe_window::RecipeWindowGUI;
+use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 
 use egui::Context;
 use std::fmt::Error;
@@ -26,6 +26,7 @@ impl SimpleRecipeWindow {
                     show_power: true,
                     show_time: true,
                 },
+                RecipeWindowType::SimpleRecipe,
             ),
         }
     }

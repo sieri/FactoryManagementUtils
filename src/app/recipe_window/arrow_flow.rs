@@ -3,7 +3,7 @@ use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::app::resources::{FlowError, FlowErrorType, ResourceDefinition};
 use crate::utils::gen_id;
 
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub struct ArrowFlow {
     pub(crate) id: egui::Id,
     pub(crate) state: ArrowUsageState,
@@ -136,7 +136,7 @@ impl ArrowFlow {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Copy, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Copy, Clone, Debug)]
 pub(crate) enum ArrowUsageState {
     Active,
     Anchored,

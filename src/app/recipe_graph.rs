@@ -12,7 +12,7 @@ use crate::app::{FlowCalculatorHelper, FlowCalculatorType};
 use serde::{Deserialize, Serialize};
 use std::collections::LinkedList;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub(crate) struct RecipeGraph {
     pub simple_recipes: Vec<SimpleRecipeWindow>,
     pub compound_recipes: Vec<CompoundRecipeWindow>,
@@ -56,14 +56,12 @@ impl RecipeGraph {
             let (start_flow_index, start_type, start_window_index) = self.get_startpoint(arrow);
 
             let (end_flow_index, end_type, end_window_index) = self.get_endpoint(arrow);
-            println!(
-                "(start_flow_index={:?}, start_type={:?}, start_window_index={:?})",
-                start_flow_index, start_type, start_window_index
-            );
-            println!(
-                "(end_flow_index={:?}, end_type={:?}, end_window_index={:?})",
-                end_flow_index, end_type, end_window_index
-            );
+            // println!(
+            //     "(start_flow_index={start_flow_index:?}, start_type={start_type:?}, start_window_index={start_window_index:?})"
+            // );
+            // println!(
+            //     "(end_flow_index={end_flow_index:?}, end_type={end_type:?}, end_window_index={end_window_index:?})"
+            // );
             if let Some(start_window_index) = start_window_index {
                 if let Some(end_window_index) = end_window_index {
                     let helper = FlowCalculatorHelper {
@@ -89,7 +87,7 @@ impl RecipeGraph {
                             );
                         }
                         RecipeWindowType::Source => {
-                            println!("Source helper push {:?}\n", helper);
+                            println!("Source helper push {helper:?}\n");
                             sources_helpers.push_back(FlowCalculatorType::Helper(helper));
                         }
                         RecipeWindowType::Sink => {
@@ -119,7 +117,7 @@ impl RecipeGraph {
             compound_recipes_helpers,
         );
 
-        println!("Calculate Helper |{:?}|", calculate_helper);
+        //println!("Calculate Helper |{calculate_helper:?}|");
 
         //calculate
         self.perform_calculation(&mut calculate_helper)
@@ -274,7 +272,7 @@ impl RecipeGraph {
     ///Perform the calculation from the calculate helpers
     fn perform_calculation(&mut self, calculate_helper: &mut LinkedList<FlowCalculatorType>) {
         for calculate_helper in calculate_helper.iter_mut() {
-            println!("Calculate_helper: {:?}", calculate_helper);
+            println!("Calculate_helper: {calculate_helper:?}");
             match calculate_helper {
                 FlowCalculatorType::Helper(h) => match h.start_type {
                     RecipeWindowType::SimpleRecipe => {
@@ -443,7 +441,7 @@ impl RecipeGraph {
                         }
                     }
                 },
-                FlowCalculatorType::EndRecipe(i) => {
+                FlowCalculatorType::EndRecipe(_i) => {
                     println!("hey!");
                 }
             }
@@ -481,6 +479,7 @@ pub mod tests {
     use egui::epaint::ahash::HashMap;
     use egui::{LayerId, Order};
 
+    #[derive(Debug)]
     pub(crate) struct TestInfo {
         pub name: String,
         pub graph: RecipeGraph,
@@ -642,6 +641,87 @@ pub mod tests {
             }
         }
 
+        pub(crate) fn setup_simple_compound_graph_two_levels() -> TestInfo {
+            println!("Hey!!!");
+            let dummy_layer: LayerId = LayerId {
+                order: Order::Background,
+                id: egui::Id::new("dummy"),
+            };
+
+            let mut graph = RecipeGraph::new();
+            let recipe_compound = CompoundRecipeWindow::setup_one_to_one_compound_two_levels();
+            let sink = ResourceSink::new();
+            let resource_a_flow = setup_flow_resource_a();
+            let source = ResourceSource::new(resource_a_flow.resource.name.clone());
+            let mut first_arrow = ArrowFlow::new(
+                recipe_compound
+                    .output_resources
+                    .first()
+                    .unwrap()
+                    .def
+                    .clone(),
+                recipe_compound.recipe.inner_recipe.id,
+                RecipeWindowType::CompoundRecipe,
+                dummy_layer,
+                0,
+            );
+            first_arrow
+                .put_end(
+                    Some(
+                        recipe_compound
+                            .output_resources
+                            .first()
+                            .unwrap()
+                            .def
+                            .clone(),
+                    ),
+                    sink.id,
+                    RecipeWindowType::Sink,
+                    0,
+                )
+                .expect("arrow error");
+            let mut second_arrow = ArrowFlow::new(
+                resource_a_flow.resource.clone(),
+                source.id,
+                RecipeWindowType::Source,
+                dummy_layer,
+                0,
+            );
+            second_arrow
+                .put_end(
+                    Some(resource_a_flow.resource),
+                    recipe_compound.recipe.inner_recipe.id,
+                    RecipeWindowType::CompoundRecipe,
+                    0,
+                )
+                .expect("arrow error");
+            graph.compound_recipes.push(recipe_compound.recipe);
+            graph.arrows.push(first_arrow);
+            graph.arrows.push(second_arrow);
+            graph.sources.push(source);
+            graph.sinks.push(sink);
+            let input = recipe_compound.input_resources.first().unwrap();
+            let output = recipe_compound.output_resources.first().unwrap();
+            println!("INPUTS!! {:?}", input);
+            println!("OUTPUTS!! {:?}", output);
+            TestInfo {
+                name: "compound one to one two levels".to_string(),
+                graph,
+                inputs: vec![ResourceFlow::new(
+                    &input.def.clone(),
+                    input.amount_per_cycle,
+                    input.amount,
+                    input.rate,
+                )],
+                outputs: vec![ResourceFlow::new(
+                    &output.def.clone(),
+                    output.amount_per_cycle,
+                    output.amount,
+                    output.rate,
+                )],
+            }
+        }
+
         fn get_calc_sources(&self) -> HashMap<ResourceDefinition, (f32, RatePer)> {
             let mut result = HashMap::new();
             for source in self.sources.iter() {
@@ -675,7 +755,8 @@ pub mod tests {
 
         for test_info in test_infos {
             println!("\n-------------------------------------------------------------------------");
-            println!("Start test on graph: {}", test_info.name);
+            println!("📍Start test on graph: {}📍", test_info.name);
+            println!("info: {:?}", test_info.inputs);
             let mut graph = test_info.graph;
             graph.calculate();
             let calculated_inputs = graph.get_calc_sources();
@@ -686,6 +767,7 @@ pub mod tests {
                 let calculated = calculated_inputs
                     .get(&resource)
                     .expect("no data in the resource");
+                println!("Hey!{}", calculated.0);
                 assert_eq!(
                     input.amount, calculated.0,
                     "Amount of an input doesn't match",
@@ -708,11 +790,12 @@ pub mod tests {
         }
     }
 
-    pub(crate) fn setup_test_graphs() -> [TestInfo; 3] {
+    pub(crate) fn setup_test_graphs() -> [TestInfo; 4] {
         [
             RecipeGraph::setup_empty_graph(),
             RecipeGraph::setup_simple_graph(),
             RecipeGraph::setup_simple_compound_graph(),
+            RecipeGraph::setup_simple_compound_graph_two_levels(),
         ]
     }
 }

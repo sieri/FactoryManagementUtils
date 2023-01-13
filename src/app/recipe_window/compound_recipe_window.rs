@@ -2,7 +2,7 @@ use crate::app::commons::CommonsManager;
 use crate::app::recipe_graph::RecipeGraph;
 
 use crate::app::recipe_window::base_recipe_window::{BaseRecipeWindow, ConfigFeatures};
-use crate::app::recipe_window::RecipeWindowGUI;
+use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::app::resources::recipe_input_resource::RecipeInputResource;
 use crate::app::resources::recipe_output_resource::RecipeOutputResource;
 use crate::app::resources::resource_flow::ManageResourceFlow;
@@ -10,7 +10,7 @@ use crate::app::resources::ManageFlow;
 use egui::Context;
 use std::fmt::Error;
 
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub(crate) struct CompoundRecipeWindow {
     ///Graph of a recipe
     recipe_graph: RecipeGraph,
@@ -43,6 +43,7 @@ impl CompoundRecipeWindow {
                     show_power: false,
                     show_time: false,
                 },
+                RecipeWindowType::CompoundRecipe,
             ),
         };
         graph.update_interface();
@@ -101,7 +102,7 @@ pub mod tests {
     use crate::app::recipe_graph::RecipeGraph;
     use crate::app::recipe_window::base_recipe_window::tests::RecipeResourceInfos;
     use crate::app::recipe_window::compound_recipe_window::CompoundRecipeWindow;
-    use crate::app::recipe_window::simple_recipe_window::tests::setup_list_of_window;
+
     use crate::app::resources::ManageFlow;
     use crate::app::resources::ManageFlow::RecipeInput;
 
@@ -134,10 +135,17 @@ pub mod tests {
         pub(crate) fn setup_one_to_one_compound() -> TestInfo {
             Self::setup_from_graph_info(RecipeGraph::setup_simple_graph())
         }
+
+        pub(crate) fn setup_one_to_one_compound_two_levels() -> TestInfo {
+            Self::setup_from_graph_info(RecipeGraph::setup_simple_compound_graph())
+        }
     }
 
-    pub(crate) fn set_list_of_compounds_windows() -> [TestInfo; 1] {
-        [CompoundRecipeWindow::setup_one_to_one_compound()]
+    pub(crate) fn set_list_of_compounds_windows() -> [TestInfo; 2] {
+        [
+            CompoundRecipeWindow::setup_one_to_one_compound(),
+            CompoundRecipeWindow::setup_one_to_one_compound_two_levels(),
+        ]
     }
 
     pub(crate) fn check_flow_and_test_info(

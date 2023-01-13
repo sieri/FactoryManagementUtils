@@ -438,6 +438,7 @@ impl eframe::App for FactoryManagementApp {
 
         if self.commons.recalculate {
             self.current_graph.calculate();
+            self.update_flows();
             self.commons.recalculate = false;
         }
     }
@@ -488,18 +489,32 @@ impl FactoryManagementApp {
 
                 if ui.button("Update all").clicked() {
                     self.current_graph.calculate();
-                    for recipe in self.current_graph.simple_recipes.iter_mut() {
-                        recipe
-                            .inner_recipe
-                            .update_flow(Io::Input)
-                            .expect("Update failure input");
-                        recipe
-                            .inner_recipe
-                            .update_flow(Io::Output)
-                            .expect("Update failure output");
-                    }
+                    self.update_flows();
                 }
             });
+        }
+    }
+
+    fn update_flows(&mut self) {
+        for recipe in self.current_graph.simple_recipes.iter_mut() {
+            recipe
+                .inner_recipe
+                .update_flow(Io::Input)
+                .expect("Update failure input");
+            recipe
+                .inner_recipe
+                .update_flow(Io::Output)
+                .expect("Update failure output");
+        }
+        for recipe in self.current_graph.simple_recipes.iter_mut() {
+            recipe
+                .inner_recipe
+                .update_flow(Io::Input)
+                .expect("Update failure input");
+            recipe
+                .inner_recipe
+                .update_flow(Io::Output)
+                .expect("Update failure output");
         }
     }
 
