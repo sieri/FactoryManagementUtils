@@ -39,13 +39,13 @@ pub struct FactoryManagementApp {
     active_arrow: Option<ArrowFlow>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 enum FlowCalculatorType {
     Helper(FlowCalculatorHelper),
     EndRecipe(usize),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct FlowCalculatorHelper {
     start_window_index: usize,
     start_flow_index: usize,

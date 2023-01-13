@@ -25,7 +25,7 @@ pub trait RecipeWindowGUI {
     fn generate_tooltip(&self) -> Result<String, std::fmt::Error>;
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Copy, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Copy, Clone, Debug)]
 pub enum RecipeWindowType {
     SimpleRecipe,
     CompoundRecipe,

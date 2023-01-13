@@ -825,3 +825,26 @@ pub trait RecipeWindowUser<'a>: serde::Serialize {
 
     fn gen_ids(&mut self);
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use crate::app::resources::resource_flow::ResourceFlow;
+    use crate::app::resources::{RatePer, ResourceDefinition};
+
+    pub(crate) struct RecipeResourceInfos {
+        pub def: ResourceDefinition,
+        pub amount: f32,
+        pub amount_per_cycle: usize,
+        pub rate: RatePer,
+    }
+    impl From<&ResourceFlow<usize, f32>> for RecipeResourceInfos {
+        fn from(value: &ResourceFlow<usize, f32>) -> Self {
+            RecipeResourceInfos {
+                def: value.resource.clone(),
+                amount: value.amount,
+                amount_per_cycle: value.amount_per_cycle,
+                rate: value.rate,
+            }
+        }
+    }
+}

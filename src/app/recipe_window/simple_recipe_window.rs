@@ -80,6 +80,7 @@ impl RecipeWindowUser<'static> for SimpleRecipeWindow {
 #[cfg(test)]
 pub mod tests {
     use crate::app::recipe_window;
+    use crate::app::recipe_window::base_recipe_window::tests::RecipeResourceInfos;
     use crate::app::recipe_window::base_recipe_window::RecipeWindowUser;
     use crate::app::recipe_window::simple_recipe_window::SimpleRecipeWindow;
     use crate::app::recipe_window::test::setup_resource_a_input;
@@ -87,13 +88,6 @@ pub mod tests {
     use crate::app::resources::{RatePer, ResourceDefinition, Unit};
     use serde::{Deserialize, Serialize};
     use std::io::Cursor;
-
-    pub(crate) struct RecipeResourceInfos {
-        pub def: ResourceDefinition,
-        pub amount: f32,
-        pub amount_per_cycle: usize,
-        pub rate: RatePer,
-    }
 
     pub(crate) struct TestInfo {
         pub recipe: SimpleRecipeWindow,

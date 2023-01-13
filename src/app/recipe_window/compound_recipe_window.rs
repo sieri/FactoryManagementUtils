@@ -49,6 +49,7 @@ impl CompoundRecipeWindow {
         graph
     }
     fn update_interface(&mut self) {
+        self.recipe_graph.calculate();
         self.inner_recipe.inputs.clear();
         for source in self.recipe_graph.sources.iter() {
             self.inner_recipe
@@ -95,4 +96,89 @@ impl RecipeWindowGUI for CompoundRecipeWindow {
 }
 
 #[cfg(test)]
-mod test {}
+pub mod tests {
+    use crate::app::recipe_graph;
+    use crate::app::recipe_graph::RecipeGraph;
+    use crate::app::recipe_window::base_recipe_window::tests::RecipeResourceInfos;
+    use crate::app::recipe_window::compound_recipe_window::CompoundRecipeWindow;
+    use crate::app::recipe_window::simple_recipe_window::tests::setup_list_of_window;
+    use crate::app::resources::ManageFlow;
+    use crate::app::resources::ManageFlow::RecipeInput;
+
+    pub(crate) struct TestInfo {
+        pub recipe: CompoundRecipeWindow,
+        pub input_resources: Vec<RecipeResourceInfos>,
+        pub output_resources: Vec<RecipeResourceInfos>,
+        pub graph_info: recipe_graph::tests::TestInfo,
+    }
+
+    impl CompoundRecipeWindow {
+        pub(crate) fn setup_from_graph_info(graph_info: recipe_graph::tests::TestInfo) -> TestInfo {
+            let recipe = Self::new(graph_info.graph.clone());
+            let mut input_resources = vec![];
+            let mut output_resources = vec![];
+            for input in graph_info.inputs.iter() {
+                input_resources.push(input.into())
+            }
+            for output in graph_info.outputs.iter() {
+                output_resources.push(output.into())
+            }
+            TestInfo {
+                recipe,
+                input_resources,
+                output_resources,
+                graph_info,
+            }
+        }
+
+        pub(crate) fn setup_one_to_one_compound() -> TestInfo {
+            Self::setup_from_graph_info(RecipeGraph::setup_simple_graph())
+        }
+    }
+
+    pub(crate) fn set_list_of_compounds_windows() -> [TestInfo; 1] {
+        [CompoundRecipeWindow::setup_one_to_one_compound()]
+    }
+
+    pub(crate) fn check_flow_and_test_info(
+        result: &ManageFlow<usize>,
+        expected: &RecipeResourceInfos,
+    ) {
+        let flow = match result {
+            RecipeInput(r) => &r.needed,
+            ManageFlow::RecipeOutput(r) => &r.created,
+        };
+
+        assert_eq!(expected.def, flow.resource, "Resource not the expected one");
+        assert_eq!(expected.amount, flow.amount, "amounts doesn't match");
+        assert_eq!(expected.rate, flow.rate, "rates doesn't match");
+    }
+
+    //----------------------------------Tests------------------------------------------
+
+    #[test]
+    fn test_compound_windows() {
+        println!("====================Testing Compound Windows====================");
+        let test_infos = set_list_of_compounds_windows();
+
+        for test_info in test_infos.iter() {
+            let recipe = &test_info.recipe;
+            for (result, expected) in recipe
+                .inner_recipe
+                .inputs
+                .iter()
+                .zip(test_info.input_resources.iter())
+            {
+                check_flow_and_test_info(result, expected);
+            }
+            for (result, expected) in recipe
+                .inner_recipe
+                .outputs
+                .iter()
+                .zip(test_info.output_resources.iter())
+            {
+                check_flow_and_test_info(result, expected);
+            }
+        }
+    }
+}
