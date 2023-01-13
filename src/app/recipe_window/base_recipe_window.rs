@@ -147,16 +147,15 @@ impl BaseRecipeWindow {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let _ = ui.label("Inputs");
-                if self.config.interactive_input {
-                    if ui
+                if self.config.interactive_input
+                    && ui
                         .add_enabled(
                             enabled,
                             egui::Button::new(egui::RichText::new("➕").color(egui::Rgba::GREEN)),
                         )
                         .clicked()
-                    {
-                        self.open_resource_adding_window(Io::Input);
-                    }
+                {
+                    self.open_resource_adding_window(Io::Input);
                 }
             });
 
@@ -182,16 +181,15 @@ impl BaseRecipeWindow {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let _ = ui.label("Outputs");
-                if self.config.interactive_input {
-                    if ui
+                if self.config.interactive_input
+                    && ui
                         .add_enabled(
                             enabled,
                             egui::Button::new(egui::RichText::new("➕").color(egui::Rgba::GREEN)),
                         )
                         .clicked()
-                    {
-                        self.open_resource_adding_window(Io::Output);
-                    }
+                {
+                    self.open_resource_adding_window(Io::Output);
                 }
             });
             for i in 0..self.outputs.len() {

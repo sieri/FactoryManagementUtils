@@ -47,13 +47,13 @@ enum FlowCalculatorType {
 
 #[derive(Copy, Clone)]
 struct FlowCalculatorHelper {
-    source_window_index: usize,
-    source_flow_index: usize,
+    start_window_index: usize,
+    start_flow_index: usize,
 
     end_window_index: usize,
     end_flow_index: usize,
 
-    source_type: RecipeWindowType,
+    start_type: RecipeWindowType,
     end_type: RecipeWindowType,
 }
 

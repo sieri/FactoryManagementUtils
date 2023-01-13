@@ -11,6 +11,7 @@ use crate::app::resources::ManageFlow;
 use crate::app::{FlowCalculatorHelper, FlowCalculatorType};
 use serde::{Deserialize, Serialize};
 use std::collections::LinkedList;
+use std::mem::transmute;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct RecipeGraph {
@@ -44,7 +45,189 @@ impl RecipeGraph {
 
         let mut sources_helpers = LinkedList::new();
         let mut sinks_helpers = LinkedList::new();
-        let mut recipes_helpers = vec![(0, LinkedList::new()); self.simple_recipes.len()];
+
+        let mut simple_recipes_helpers = vec![(0, LinkedList::new()); self.simple_recipes.len()];
+        let mut compound_recipes_helpers =
+            vec![(0, LinkedList::new()); self.compound_recipes.len()];
+
+        self.reset_flows();
+        let arrows = self.arrows.clone();
+        //build relationships from arrows
+        for arrow in arrows.iter() {
+            let (start_flow_index, start_type, start_window_index) = self.get_startpoint(arrow);
+
+            let (end_flow_index, end_type, end_window_index) = self.get_endpoint(arrow);
+
+            if let Some(start_window_index) = start_window_index {
+                if let Some(end_window_index) = end_window_index {
+                    let helper = FlowCalculatorHelper {
+                        start_window_index,
+                        start_flow_index,
+                        start_type,
+                        end_window_index,
+                        end_flow_index,
+                        end_type,
+                    };
+
+                    match start_type {
+                        RecipeWindowType::SimpleRecipe => {
+                            let source_order = simple_recipes_helpers[start_window_index].0;
+                            Self::connect_resources_helpers_ends(
+                                &mut simple_recipes_helpers,
+                                &mut compound_recipes_helpers,
+                                &mut sinks_helpers,
+                                end_type,
+                                end_window_index,
+                                helper,
+                                source_order,
+                            );
+                        }
+                        RecipeWindowType::Source => {
+                            sources_helpers.push_back(FlowCalculatorType::Helper(helper));
+                        }
+                        RecipeWindowType::Sink => {
+                            println!("Starting at a sink!!")
+                        }
+                        RecipeWindowType::CompoundRecipe => {
+                            let source_order = compound_recipes_helpers[start_window_index].0;
+                            Self::connect_resources_helpers_ends(
+                                &mut simple_recipes_helpers,
+                                &mut compound_recipes_helpers,
+                                &mut sinks_helpers,
+                                end_type,
+                                end_window_index,
+                                helper,
+                                source_order,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut calculate_helper =
+            Self::concatenate_helpers(sources_helpers, sinks_helpers, simple_recipes_helpers);
+        //calculate
+        self.perform_calculation(&mut calculate_helper)
+    }
+
+    fn connect_resources_helpers_ends(
+        simple_recipes_helpers: &mut Vec<(usize, LinkedList<FlowCalculatorType>)>,
+        compound_recipes_helpers: &mut Vec<(usize, LinkedList<FlowCalculatorType>)>,
+        sinks_helpers: &mut LinkedList<FlowCalculatorType>,
+        end_type: RecipeWindowType,
+        end_window_index: usize,
+        helper: FlowCalculatorHelper,
+        source_order: usize,
+    ) {
+        match end_type {
+            RecipeWindowType::SimpleRecipe => {
+                let mut end_order = simple_recipes_helpers[end_window_index].0;
+
+                //if the source is higher than end
+                if source_order >= end_order {
+                    //change the end order
+                    end_order = source_order + 1usize;
+                }
+
+                //add the helper to the end point
+                simple_recipes_helpers[end_window_index]
+                    .1
+                    .push_back(FlowCalculatorType::Helper(helper));
+                //add order to the list
+                simple_recipes_helpers[end_window_index].0 = end_order;
+            }
+            RecipeWindowType::CompoundRecipe => {
+                let mut end_order: usize = compound_recipes_helpers[end_window_index].0;
+
+                if source_order >= end_order {
+                    end_order = source_order + 1usize;
+                }
+
+                compound_recipes_helpers[end_window_index]
+                    .1
+                    .push_back(FlowCalculatorType::Helper(helper));
+                compound_recipes_helpers[end_window_index].0 = end_order;
+            }
+            RecipeWindowType::Source => {
+                println!("Can't be done, ending at a sink")
+            }
+            RecipeWindowType::Sink => sinks_helpers.push_back(FlowCalculatorType::Helper(helper)),
+        }
+    }
+
+    fn get_endpoint(&mut self, arrow: &ArrowFlow) -> (usize, RecipeWindowType, Option<usize>) {
+        let end_id = arrow
+            .end_flow_window
+            .unwrap_or_else(|| egui::Id::new("Invalid ID"));
+        let end_flow_index = arrow.end_flow_index;
+        let end_type = arrow.end_flow_type.unwrap_or(RecipeWindowType::Source);
+        let end_window_index = match end_type {
+            RecipeWindowType::SimpleRecipe => self
+                .simple_recipes
+                .iter()
+                .position(|recipe| recipe.inner_recipe.id == end_id),
+            RecipeWindowType::Source => None,
+            RecipeWindowType::Sink => self.sinks.iter().position(|sink| sink.id == end_id),
+            RecipeWindowType::CompoundRecipe => self
+                .compound_recipes
+                .iter()
+                .position(|recipe| recipe.inner_recipe.id == end_id),
+        };
+        (end_flow_index, end_type, end_window_index)
+    }
+
+    fn get_startpoint(&mut self, arrow: &ArrowFlow) -> (usize, RecipeWindowType, Option<usize>) {
+        let start_id = arrow.start_flow_window;
+        let source_flow_index = arrow.start_flow_index;
+        let source_type = arrow.start_flow_type;
+
+        let source_window_index = match source_type {
+            RecipeWindowType::SimpleRecipe => self
+                .simple_recipes
+                .iter()
+                .position(|recipe| recipe.inner_recipe.id == start_id),
+            RecipeWindowType::Source => {
+                self.sources.iter().position(|recipe| recipe.id == start_id)
+            }
+            RecipeWindowType::Sink => {
+                println!("incorrect source type");
+                None
+            }
+            RecipeWindowType::CompoundRecipe => self
+                .compound_recipes
+                .iter()
+                .position(|recipe| recipe.inner_recipe.id == start_id),
+        };
+        (source_flow_index, source_type, source_window_index)
+    }
+
+    fn concatenate_helpers(
+        sources_helpers: LinkedList<FlowCalculatorType>,
+        mut sinks_helpers: LinkedList<FlowCalculatorType>,
+        mut recipes_helpers: Vec<(usize, LinkedList<FlowCalculatorType>)>,
+    ) -> LinkedList<FlowCalculatorType> {
+        let mut calculate_helper = sources_helpers;
+
+        recipes_helpers.sort_by(|helper1, helper2| helper1.0.partial_cmp(&helper2.0).unwrap());
+
+        for (order, mut list) in recipes_helpers {
+            println!("{order}");
+            if list.front().is_some() {
+                let index = match list.front().unwrap() {
+                    FlowCalculatorType::Helper(h) => h.end_window_index,
+                    FlowCalculatorType::EndRecipe(i) => *i,
+                };
+                list.push_back(FlowCalculatorType::EndRecipe(index));
+                calculate_helper.append(&mut list);
+            }
+        }
+
+        calculate_helper.append(&mut sinks_helpers);
+        calculate_helper
+    }
+
+    fn reset_flows(&mut self) {
         //reset flows
         for source in self.sources.iter_mut() {
             source.output.reset();
@@ -70,159 +253,16 @@ impl RecipeGraph {
                 f.reset();
             }
         }
+    }
 
-        //build relationships from arrows
-        for arrow in self.arrows.iter() {
-            let start_id = arrow.start_flow_window;
-            let source_flow_index = arrow.start_flow_index;
-            let source_type = arrow.start_flow_type;
-
-            let source_window_index = match source_type {
-                RecipeWindowType::SimpleRecipe => self
-                    .simple_recipes
-                    .iter()
-                    .position(|recipe| recipe.inner_recipe.id == start_id),
-                RecipeWindowType::Source => {
-                    self.sources.iter().position(|recipe| recipe.id == start_id)
-                }
-                RecipeWindowType::Sink => {
-                    println!("incorrect source type");
-                    None
-                }
-                RecipeWindowType::CompoundRecipe => self
-                    .compound_recipes
-                    .iter()
-                    .position(|recipe| recipe.inner_recipe.id == start_id),
-            };
-
-            let end_id = arrow
-                .end_flow_window
-                .unwrap_or_else(|| egui::Id::new("Invalid ID"));
-            let end_flow_index = arrow.end_flow_index;
-            let end_type = arrow.end_flow_type.unwrap_or(RecipeWindowType::Source);
-            let end_window_index = match end_type {
-                RecipeWindowType::SimpleRecipe => self
-                    .simple_recipes
-                    .iter()
-                    .position(|recipe| recipe.inner_recipe.id == end_id),
-                RecipeWindowType::Source => None,
-                RecipeWindowType::Sink => self.sinks.iter().position(|sink| sink.id == end_id),
-                RecipeWindowType::CompoundRecipe => self
-                    .compound_recipes
-                    .iter()
-                    .position(|recipe| recipe.inner_recipe.id == end_id),
-            };
-
-            if let Some(source_window_index) = source_window_index {
-                if let Some(end_window_index) = end_window_index {
-                    let helper = FlowCalculatorHelper {
-                        source_window_index,
-                        source_flow_index,
-                        end_window_index,
-                        end_flow_index,
-
-                        source_type,
-                        end_type,
-                    };
-
-                    match source_type {
-                        RecipeWindowType::SimpleRecipe => {
-                            let source_order = recipes_helpers[source_window_index].0;
-                            match end_type {
-                                RecipeWindowType::SimpleRecipe => {
-                                    let mut end_order = recipes_helpers[end_window_index].0;
-
-                                    if source_order >= end_order {
-                                        end_order = source_order + 1usize;
-                                    }
-
-                                    recipes_helpers[end_window_index]
-                                        .1
-                                        .push_back(FlowCalculatorType::Helper(helper));
-                                    recipes_helpers[end_window_index].0 = end_order;
-                                }
-                                RecipeWindowType::CompoundRecipe => {
-                                    let mut end_order = recipes_helpers[end_window_index].0;
-
-                                    if source_order >= end_order {
-                                        end_order = source_order + 1usize;
-                                    }
-
-                                    recipes_helpers[end_window_index]
-                                        .1
-                                        .push_back(FlowCalculatorType::Helper(helper));
-                                    recipes_helpers[end_window_index].0 = end_order;
-                                }
-                                RecipeWindowType::Source => {}
-                                RecipeWindowType::Sink => {}
-                            }
-                        }
-                        RecipeWindowType::Source => {
-                            sources_helpers.push_back(FlowCalculatorType::Helper(helper));
-                        }
-                        RecipeWindowType::Sink => {
-                            sinks_helpers.push_back(FlowCalculatorType::Helper(helper))
-                        }
-                        RecipeWindowType::CompoundRecipe => {
-                            let source_order = recipes_helpers[source_window_index].0;
-                            match end_type {
-                                RecipeWindowType::SimpleRecipe => {
-                                    let mut end_order = recipes_helpers[end_window_index].0;
-
-                                    if source_order >= end_order {
-                                        end_order = source_order + 1usize;
-                                    }
-
-                                    recipes_helpers[end_window_index]
-                                        .1
-                                        .push_back(FlowCalculatorType::Helper(helper));
-                                    recipes_helpers[end_window_index].0 = end_order;
-                                }
-                                RecipeWindowType::CompoundRecipe => {
-                                    let mut end_order = recipes_helpers[end_window_index].0;
-
-                                    if source_order >= end_order {
-                                        end_order = source_order + 1usize;
-                                    }
-
-                                    recipes_helpers[end_window_index]
-                                        .1
-                                        .push_back(FlowCalculatorType::Helper(helper));
-                                    recipes_helpers[end_window_index].0 = end_order;
-                                }
-                                RecipeWindowType::Source => {}
-                                RecipeWindowType::Sink => {}
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        let mut calculate_helper = sources_helpers;
-
-        recipes_helpers.sort_by(|helper1, helper2| helper1.0.partial_cmp(&helper2.0).unwrap());
-
-        for (order, mut list) in recipes_helpers {
-            println!("{order}");
-            if list.front().is_some() {
-                let index = match list.front().unwrap() {
-                    FlowCalculatorType::Helper(h) => h.end_window_index,
-                    FlowCalculatorType::EndRecipe(i) => *i,
-                };
-                list.push_back(FlowCalculatorType::EndRecipe(index));
-                calculate_helper.append(&mut list);
-            }
-        }
-
-        calculate_helper.append(&mut sinks_helpers);
-
-        //calculate
+    ///Perform the calculation from the calculate helpers
+    fn perform_calculation(&mut self, calculate_helper: &mut LinkedList<FlowCalculatorType>) {
         for calculate_helper in calculate_helper.iter_mut() {
             match calculate_helper {
-                FlowCalculatorType::Helper(h) => match h.source_type {
+                FlowCalculatorType::Helper(h) => match h.start_type {
                     RecipeWindowType::SimpleRecipe => {
-                        let source = &mut self.simple_recipes[h.source_window_index];
-                        let source_flow = &mut source.inner_recipe.outputs[h.source_flow_index];
+                        let source = &mut self.simple_recipes[h.start_window_index];
+                        let source_flow = &mut source.inner_recipe.outputs[h.start_flow_index];
                         match source_flow {
                             ManageFlow::RecipeInput(_) => {
                                 println!("Resource source wrong")
@@ -283,7 +323,7 @@ impl RecipeGraph {
                         }
                     }
                     RecipeWindowType::Source => {
-                        let source = &mut self.sources[h.source_window_index];
+                        let source = &mut self.sources[h.start_window_index];
                         let end_flow = match h.end_type {
                             RecipeWindowType::SimpleRecipe => {
                                 let end = &mut self.simple_recipes[h.end_window_index];
@@ -324,8 +364,8 @@ impl RecipeGraph {
                     }
                     RecipeWindowType::Sink => {}
                     RecipeWindowType::CompoundRecipe => {
-                        let source = &mut self.compound_recipes[h.source_window_index];
-                        let source_flow = &mut source.inner_recipe.outputs[h.source_flow_index];
+                        let source = &mut self.compound_recipes[h.start_window_index];
+                        let source_flow = &mut source.inner_recipe.outputs[h.start_flow_index];
                         match source_flow {
                             ManageFlow::RecipeInput(_) => {
                                 println!("Resource source wrong")
@@ -518,8 +558,12 @@ pub mod tests {
         fn get_calc_sinks(&self) -> HashMap<ResourceDefinition, (f32, RatePer)> {
             let mut result = HashMap::new();
             for sink in self.sinks.iter() {
-                println!("sink{:?}", sink);
-                let flow = sink.sink.as_ref().unwrap().total_in();
+                println!("sink{sink:?}");
+                let flow = sink
+                    .sink
+                    .as_ref()
+                    .expect("Unconnected calculation sink")
+                    .total_in();
                 result.insert(flow.resource, (flow.amount, flow.rate));
             }
 
@@ -533,6 +577,7 @@ pub mod tests {
         let test_infos = setup_test_graphs();
 
         for test_info in test_infos {
+            println!("-------------------------------------------------------------------------");
             println!("Start test on graph: {}", test_info.name);
             let mut graph = test_info.graph;
             graph.calculate();
