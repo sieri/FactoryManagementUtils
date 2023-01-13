@@ -9,7 +9,7 @@ use crate::utils::gen_id;
 use egui::Widget;
 use std::fmt::Write;
 
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub(crate) struct ResourceSink {
     ///unique id of the resource
     pub(crate) id: egui::Id,

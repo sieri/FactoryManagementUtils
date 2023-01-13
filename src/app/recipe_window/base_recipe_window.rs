@@ -62,6 +62,9 @@ pub struct BaseRecipeWindow {
     ///Flag indicating if every outputs have sufficient draining
     stable_out: bool,
 
+    ///Configurations of the features shown
+    config: ConfigFeatures,
+
     #[serde(skip)]
     window_coordinate: CoordinatesInfo,
 
@@ -69,9 +72,29 @@ pub struct BaseRecipeWindow {
     pub(crate) errors: Vec<ShowError>,
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
+pub struct ConfigFeatures {
+    pub interactive_input: bool,
+    pub pure_time_input: bool,
+    pub interactive_output: bool,
+    pub pure_time_output: bool,
+    pub show_power: bool,
+    pub show_time: bool,
+}
+
 impl Default for BaseRecipeWindow {
     fn default() -> Self {
-        Self::new(String::from("Basic Recipe Window"))
+        Self::new(
+            String::from("Basic Recipe Window"),
+            ConfigFeatures {
+                interactive_input: true,
+                pure_time_input: true,
+                interactive_output: true,
+                pure_time_output: true,
+                show_power: true,
+                show_time: true,
+            },
+        )
     }
 }
 
@@ -83,7 +106,7 @@ impl BaseRecipeWindow {
     /// * `title`: Title of the recipe
     ///
     /// returns: BasicRecipeWindowDescriptor
-    pub fn new(title: String) -> Self {
+    pub fn new(title: String, config: ConfigFeatures) -> Self {
         let id = gen_id(title.clone());
         let tooltip_id = id.with("Tooltip");
         let temp_tooltip_id = id.with("Temp Tooltip");
@@ -109,49 +132,77 @@ impl BaseRecipeWindow {
             description_open: false,
             stable_in: false,
             stable_out: false,
+            config,
             window_coordinate: CoordinatesInfo::default(),
             errors: vec![],
         }
     }
 
-    fn show_inputs(&mut self, commons: &mut CommonsManager, ui: &mut egui::Ui, enabled: bool) {
+    pub(crate) fn show_inputs(
+        &mut self,
+        commons: &mut CommonsManager,
+        ui: &mut egui::Ui,
+        enabled: bool,
+    ) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let _ = ui.label("Inputs");
-
-                if ui
-                    .add_enabled(
-                        enabled,
-                        egui::Button::new(egui::RichText::new("➕").color(egui::Rgba::GREEN)),
-                    )
-                    .clicked()
-                {
-                    self.open_resource_adding_window(Io::Input);
+                if self.config.interactive_input {
+                    if ui
+                        .add_enabled(
+                            enabled,
+                            egui::Button::new(egui::RichText::new("➕").color(egui::Rgba::GREEN)),
+                        )
+                        .clicked()
+                    {
+                        self.open_resource_adding_window(Io::Input);
+                    }
                 }
             });
 
             for i in 0..self.inputs.len() {
-                self.show_flow(commons, i, Io::Input, ui, enabled);
+                self.show_flow(
+                    commons,
+                    i,
+                    Io::Input,
+                    ui,
+                    enabled,
+                    self.config.pure_time_input,
+                );
             }
         });
     }
 
-    fn show_outputs(&mut self, commons: &mut CommonsManager, ui: &mut egui::Ui, enabled: bool) {
+    pub(crate) fn show_outputs(
+        &mut self,
+        commons: &mut CommonsManager,
+        ui: &mut egui::Ui,
+        enabled: bool,
+    ) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let _ = ui.label("Outputs");
-                if ui
-                    .add_enabled(
-                        enabled,
-                        egui::Button::new(egui::RichText::new("➕").color(egui::Rgba::GREEN)),
-                    )
-                    .clicked()
-                {
-                    self.open_resource_adding_window(Io::Output);
+                if self.config.interactive_input {
+                    if ui
+                        .add_enabled(
+                            enabled,
+                            egui::Button::new(egui::RichText::new("➕").color(egui::Rgba::GREEN)),
+                        )
+                        .clicked()
+                    {
+                        self.open_resource_adding_window(Io::Output);
+                    }
                 }
             });
             for i in 0..self.outputs.len() {
-                self.show_flow(commons, i, Io::Output, ui, enabled);
+                self.show_flow(
+                    commons,
+                    i,
+                    Io::Output,
+                    ui,
+                    enabled,
+                    self.config.pure_time_output,
+                );
             }
         });
     }
@@ -163,6 +214,7 @@ impl BaseRecipeWindow {
         dir: Io,
         ui: &mut egui::Ui,
         _enabled: bool,
+        pure_time: bool,
     ) {
         let mut changed = false;
         //get variables
@@ -222,11 +274,12 @@ impl BaseRecipeWindow {
             ui.label(":");
 
             ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    changed |= egui::DragValue::new(&mut amount).ui(ui).changed();
-                    ui.label("per cycle");
-                });
-
+                if !pure_time {
+                    ui.horizontal(|ui| {
+                        changed |= egui::DragValue::new(&mut amount).ui(ui).changed();
+                        ui.label("per cycle");
+                    });
+                }
                 ui.horizontal(|ui| {
                     changed |= egui::DragValue::new(&mut amount_per_time).ui(ui).changed();
                     ui.label(egui::RichText::new(rate.to_shortened_string()).color(color))
@@ -258,10 +311,14 @@ impl BaseRecipeWindow {
                 println!("Hello!");
                 match dir {
                     Io::Input => {
-                        resource_flow.set_designed_amount_per_cycle(amount);
+                        if self.config.interactive_input {
+                            resource_flow.set_designed_amount_per_cycle(amount);
+                        }
                     }
                     Io::Output => {
-                        resource_flow.set_designed_amount_per_cycle(amount);
+                        if self.config.interactive_output {
+                            resource_flow.set_designed_amount_per_cycle(amount);
+                        }
                     }
                 }
             }
@@ -276,7 +333,7 @@ impl BaseRecipeWindow {
         commons.recalculate |= changed;
     }
 
-    fn show_power(&mut self, ui: &mut egui::Ui, _enabled: bool) {
+    pub(crate) fn show_power(&mut self, ui: &mut egui::Ui, _enabled: bool) {
         let power: &dyn ManageResourceFlow<usize> = match &self.power {
             None => {
                 if ui.button("Add Power").clicked() {} //TODO: Add power
@@ -300,7 +357,7 @@ impl BaseRecipeWindow {
         });
     }
 
-    fn show_time_settings(
+    pub(crate) fn show_time_settings(
         &mut self,
         mut common: &mut CommonsManager,
         ui: &mut egui::Ui,
@@ -332,7 +389,7 @@ impl BaseRecipeWindow {
         Ok(())
     }
 
-    fn show_notes(&mut self, ui: &mut egui::Ui, _enabled: bool) {
+    pub(crate) fn show_notes(&mut self, ui: &mut egui::Ui, _enabled: bool) {
         let short_title = self.description.lines().next().unwrap_or("").trim();
         egui::CollapsingHeader::new(format!("Notes: {short_title}"))
             .id_source(self.id)
@@ -351,13 +408,17 @@ impl BaseRecipeWindow {
             match f {
                 RecipeInput(f) => {
                     stable &= f.is_enough();
-                    f.needed
-                        .convert_time_base(self.time_cycle, self.time_unit)?;
+                    if !self.config.pure_time_input {
+                        f.needed
+                            .convert_time_base(self.time_cycle, self.time_unit)?;
+                    }
                 }
                 RecipeOutput(f) => {
                     stable &= f.is_enough();
-                    f.created
-                        .convert_time_base(self.time_cycle, self.time_unit)?;
+                    if !self.config.pure_time_output {
+                        f.created
+                            .convert_time_base(self.time_cycle, self.time_unit)?;
+                    }
                 }
             }
         }
@@ -437,10 +498,14 @@ impl BaseRecipeWindow {
                         self.show_outputs(commons, ui, enabled);
                     });
                     ui.separator();
-                    self.show_power(ui, enabled);
-                    let result = self.show_time_settings(commons, ui, enabled);
-                    if result.is_err() {
-                        commons.add_error(ShowError::new(format!("{}", result.err().unwrap())));
+                    if self.config.show_power {
+                        self.show_power(ui, enabled);
+                    }
+                    if self.config.show_time {
+                        let result = self.show_time_settings(commons, ui, enabled);
+                        if result.is_err() {
+                            commons.add_error(ShowError::new(format!("{}", result.err().unwrap())));
+                        }
                     }
                     self.show_notes(ui, enabled);
                 });

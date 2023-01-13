@@ -1,6 +1,8 @@
 use crate::app::commons::CommonsManager;
 use crate::app::error::ShowError;
-use crate::app::recipe_window::base_recipe_window::{BaseRecipeWindow, RecipeWindowUser};
+use crate::app::recipe_window::base_recipe_window::{
+    BaseRecipeWindow, ConfigFeatures, RecipeWindowUser,
+};
 use crate::app::recipe_window::RecipeWindowGUI;
 
 use egui::Context;
@@ -14,7 +16,17 @@ pub struct SimpleRecipeWindow {
 impl SimpleRecipeWindow {
     pub fn new(title: String) -> Self {
         Self {
-            inner_recipe: BaseRecipeWindow::new(title),
+            inner_recipe: BaseRecipeWindow::new(
+                title,
+                ConfigFeatures {
+                    interactive_input: true,
+                    pure_time_input: false,
+                    interactive_output: true,
+                    pure_time_output: false,
+                    show_power: true,
+                    show_time: true,
+                },
+            ),
         }
     }
 }
@@ -68,13 +80,11 @@ impl RecipeWindowUser<'static> for SimpleRecipeWindow {
 #[cfg(test)]
 pub mod tests {
     use crate::app::recipe_window;
-    use crate::app::recipe_window::base_recipe_window::{RecipeWindowUser};
+    use crate::app::recipe_window::base_recipe_window::RecipeWindowUser;
     use crate::app::recipe_window::simple_recipe_window::SimpleRecipeWindow;
     use crate::app::recipe_window::test::setup_resource_a_input;
     use crate::app::recipe_window::RecipeWindowGUI;
     use crate::app::resources::{RatePer, ResourceDefinition, Unit};
-    
-    use crate::test_framework::{TestError, TestResult};
     use serde::{Deserialize, Serialize};
     use std::io::Cursor;
 
@@ -155,7 +165,7 @@ pub mod tests {
 
     #[test]
     #[ignore = "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"] //TODO: FIX
-    fn test_tooltip_empty() -> TestResult {
+    fn test_tooltip_empty() {
         let sample_window = setup_basic_recipe_window_empty();
         let expected = recipe_window::test::build_tooltip(
             [
@@ -167,12 +177,11 @@ pub mod tests {
             .as_slice(),
         );
         perform_test_tooltip(sample_window.recipe, expected);
-        Ok(())
     }
 
     #[test]
     #[ignore = "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"] //TODO: FIX
-    fn test_tooltip_one_to_one() -> TestResult {
+    fn test_tooltip_one_to_one() {
         let sample_window = setup_basic_recipe_one_to_one();
         let expected = recipe_window::test::build_tooltip(
             [
@@ -184,11 +193,10 @@ pub mod tests {
             .as_slice(),
         );
         perform_test_tooltip(sample_window.recipe, expected);
-        Ok(())
     }
 
     #[test]
-    fn test_serialization() -> TestResult {
+    fn test_serialization() {
         let originals = setup_list_of_window();
         let mut strings = Vec::new();
         for original in originals.iter() {
@@ -198,9 +206,7 @@ pub mod tests {
             let result = recipe.serialize(&mut serde_json::Serializer::new(s));
 
             if let Err(e) = result {
-                return Err(TestError {
-                    text: format!("serialization error {e}"),
-                });
+                panic!("serialization error {e}");
             }
             strings.push(vec)
         }
@@ -211,9 +217,7 @@ pub mod tests {
             let mut des = serde_json::Deserializer::from_reader(cursor);
             let result = SimpleRecipeWindow::deserialize(&mut des);
             if let Err(e) = result {
-                return Err(TestError {
-                    text: format!("deserialization error {e}"),
-                });
+                panic!("deserialization error {e}");
             }
             deserializes.push(result.unwrap());
         }
@@ -222,12 +226,10 @@ pub mod tests {
             let recipe = &original.recipe;
             assert_eq!(recipe, deserialized, "Deserialization doesn't match");
         }
-
-        Ok(())
     }
 
     #[test]
-    fn test_save_and_load() -> TestResult {
+    fn test_save_and_load() {
         let mut originals = setup_list_of_window();
         let mut saved = vec![];
         for original in originals.iter_mut() {
@@ -250,7 +252,5 @@ pub mod tests {
                 "Original and loaded should be different in ids",
             );
         }
-
-        Ok(())
     }
 }

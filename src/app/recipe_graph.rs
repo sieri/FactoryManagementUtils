@@ -128,16 +128,34 @@ impl RecipeGraph {
                     match source_type {
                         RecipeWindowType::SimpleRecipe => {
                             let source_order = recipes_helpers[source_window_index].0;
-                            let mut end_order = recipes_helpers[end_window_index].0;
+                            match end_type {
+                                RecipeWindowType::SimpleRecipe => {
+                                    let mut end_order = recipes_helpers[end_window_index].0;
 
-                            if source_order >= end_order {
-                                end_order = source_order + 1usize;
+                                    if source_order >= end_order {
+                                        end_order = source_order + 1usize;
+                                    }
+
+                                    recipes_helpers[end_window_index]
+                                        .1
+                                        .push_back(FlowCalculatorType::Helper(helper));
+                                    recipes_helpers[end_window_index].0 = end_order;
+                                }
+                                RecipeWindowType::CompoundRecipe => {
+                                    let mut end_order = recipes_helpers[end_window_index].0;
+
+                                    if source_order >= end_order {
+                                        end_order = source_order + 1usize;
+                                    }
+
+                                    recipes_helpers[end_window_index]
+                                        .1
+                                        .push_back(FlowCalculatorType::Helper(helper));
+                                    recipes_helpers[end_window_index].0 = end_order;
+                                }
+                                RecipeWindowType::Source => {}
+                                RecipeWindowType::Sink => {}
                             }
-
-                            recipes_helpers[end_window_index]
-                                .1
-                                .push_back(FlowCalculatorType::Helper(helper));
-                            recipes_helpers[end_window_index].0 = end_order;
                         }
                         RecipeWindowType::Source => {
                             sources_helpers.push_back(FlowCalculatorType::Helper(helper));
@@ -147,16 +165,34 @@ impl RecipeGraph {
                         }
                         RecipeWindowType::CompoundRecipe => {
                             let source_order = recipes_helpers[source_window_index].0;
-                            let mut end_order = recipes_helpers[end_window_index].0;
+                            match end_type {
+                                RecipeWindowType::SimpleRecipe => {
+                                    let mut end_order = recipes_helpers[end_window_index].0;
 
-                            if source_order >= end_order {
-                                end_order = source_order + 1usize;
+                                    if source_order >= end_order {
+                                        end_order = source_order + 1usize;
+                                    }
+
+                                    recipes_helpers[end_window_index]
+                                        .1
+                                        .push_back(FlowCalculatorType::Helper(helper));
+                                    recipes_helpers[end_window_index].0 = end_order;
+                                }
+                                RecipeWindowType::CompoundRecipe => {
+                                    let mut end_order = recipes_helpers[end_window_index].0;
+
+                                    if source_order >= end_order {
+                                        end_order = source_order + 1usize;
+                                    }
+
+                                    recipes_helpers[end_window_index]
+                                        .1
+                                        .push_back(FlowCalculatorType::Helper(helper));
+                                    recipes_helpers[end_window_index].0 = end_order;
+                                }
+                                RecipeWindowType::Source => {}
+                                RecipeWindowType::Sink => {}
                             }
-
-                            recipes_helpers[end_window_index]
-                                .1
-                                .push_back(FlowCalculatorType::Helper(helper));
-                            recipes_helpers[end_window_index].0 = end_order;
                         }
                     }
                 }
@@ -482,6 +518,7 @@ pub mod tests {
         fn get_calc_sinks(&self) -> HashMap<ResourceDefinition, (f32, RatePer)> {
             let mut result = HashMap::new();
             for sink in self.sinks.iter() {
+                println!("sink{:?}", sink);
                 let flow = sink.sink.as_ref().unwrap().total_in();
                 result.insert(flow.resource, (flow.amount, flow.rate));
             }
@@ -497,10 +534,10 @@ pub mod tests {
 
         for test_info in test_infos {
             println!("Start test on graph: {}", test_info.name);
-            let mut app = test_info.graph;
-            app.calculate();
-            let calculated_inputs = app.get_calc_sources();
-            println!("Calculated: {calculated_inputs:?}");
+            let mut graph = test_info.graph;
+            graph.calculate();
+            let calculated_inputs = graph.get_calc_sources();
+            println!("Calculated inputs: {calculated_inputs:?}");
             for input in test_info.inputs.iter() {
                 let resource = input.resource.clone();
                 println!("Resource{resource}");
@@ -513,7 +550,8 @@ pub mod tests {
                 );
                 assert_eq!(input.rate, calculated.1, "Rate of an input doesn't match");
             }
-            let calculated_outputs = app.get_calc_sinks();
+            let calculated_outputs = graph.get_calc_sinks();
+            println!("Calculated outputs: {calculated_inputs:?}");
             for output in test_info.outputs.iter() {
                 let resource = output.resource.clone();
                 let calculated = calculated_outputs

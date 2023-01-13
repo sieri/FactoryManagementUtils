@@ -1,9 +1,10 @@
 use crate::app::commons::CommonsManager;
 use crate::app::recipe_graph::RecipeGraph;
 
-use crate::app::recipe_window::base_recipe_window::BaseRecipeWindow;
+use crate::app::recipe_window::base_recipe_window::{BaseRecipeWindow, ConfigFeatures};
 use crate::app::recipe_window::RecipeWindowGUI;
 use crate::app::resources::recipe_input_resource::RecipeInputResource;
+use crate::app::resources::recipe_output_resource::RecipeOutputResource;
 use crate::app::resources::resource_flow::ManageResourceFlow;
 use crate::app::resources::ManageFlow;
 use egui::Context;
@@ -32,7 +33,17 @@ impl CompoundRecipeWindow {
 
         let mut graph = Self {
             recipe_graph,
-            inner_recipe: BaseRecipeWindow::new(title),
+            inner_recipe: BaseRecipeWindow::new(
+                title,
+                ConfigFeatures {
+                    interactive_input: false,
+                    pure_time_input: true,
+                    interactive_output: false,
+                    pure_time_output: true,
+                    show_power: false,
+                    show_time: false,
+                },
+            ),
         };
         graph.update_interface();
         graph
@@ -50,23 +61,32 @@ impl CompoundRecipeWindow {
         self.inner_recipe.outputs.clear();
         for sink in self.recipe_graph.sinks.iter() {
             if let Some(flow) = &sink.sink {
-                self.inner_recipe
-                    .outputs
-                    .push(ManageFlow::RecipeInput(RecipeInputResource::new(
-                        flow.resource().clone(),
-                        flow.total_in(),
-                    )));
+                self.inner_recipe.outputs.push(ManageFlow::RecipeOutput(
+                    RecipeOutputResource::new(flow.resource().clone(), flow.total_in()),
+                ));
             }
         }
     }
 }
 
 impl RecipeWindowGUI for CompoundRecipeWindow {
-    fn show(&mut self, _commons: &mut CommonsManager, _ctx: &Context, _enabled: bool) -> bool {
-        let mut _open = true;
+    fn show(&mut self, commons: &mut CommonsManager, ctx: &Context, enabled: bool) -> bool {
+        let mut open = true;
         self.inner_recipe.clean_coordinates();
+        let title = self.inner_recipe.get_title();
+        let response = self
+            .inner_recipe
+            .window(commons, ctx, enabled, &mut open, title);
+        let inner_response = response.unwrap();
+        self.inner_recipe.update_coordinates(&inner_response);
+        self.inner_recipe
+            .show_tooltips(commons, ctx, inner_response);
 
-        todo!()
+        self.inner_recipe.push_errors(commons);
+
+        self.inner_recipe.push_coordinates(commons, &mut open);
+
+        open
     }
 
     fn generate_tooltip(&self) -> Result<String, Error> {
