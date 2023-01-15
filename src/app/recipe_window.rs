@@ -54,7 +54,10 @@ fn text_edit(ui: &mut egui::Ui, text: &mut String) {
 #[cfg(test)]
 pub mod test {
     use crate::app::resources::recipe_input_resource::RecipeInputResource;
-    use crate::app::resources::resource_flow::test::setup_flow_resource_a;
+    use crate::app::resources::recipe_output_resource::RecipeOutputResource;
+    use crate::app::resources::resource_flow::test::{
+        setup_flow_resource_a, setup_flow_resource_b,
+    };
     use crate::app::resources::test::setup_resource_a;
     use crate::app::resources::{resource_flow, ManageFlow};
     use std::fmt::Write;
@@ -64,10 +67,40 @@ pub mod test {
         pub flow: resource_flow::test::TestInfo,
     }
 
-    pub(crate) fn setup_resource_a_input() -> TestInfo {
-        let flow = setup_flow_resource_a();
+    pub(crate) fn setup_resource_a_input(amount: Option<usize>) -> TestInfo {
+        let flow = setup_flow_resource_a(amount);
         let manage_flow = ManageFlow::RecipeInput(RecipeInputResource::new(
             setup_resource_a(),
+            flow.flow.clone(),
+        ));
+
+        TestInfo { manage_flow, flow }
+    }
+
+    pub(crate) fn setup_resource_a_output(amount: Option<usize>) -> TestInfo {
+        let flow = setup_flow_resource_a(amount);
+        let manage_flow = ManageFlow::RecipeOutput(RecipeOutputResource::new(
+            flow.flow.resource.clone(),
+            flow.flow.clone(),
+        ));
+
+        TestInfo { manage_flow, flow }
+    }
+
+    pub(crate) fn setup_resource_b_input(amount: Option<usize>) -> TestInfo {
+        let flow = setup_flow_resource_b(amount);
+        let manage_flow = ManageFlow::RecipeInput(RecipeInputResource::new(
+            flow.flow.resource.clone(),
+            flow.flow.clone(),
+        ));
+
+        TestInfo { manage_flow, flow }
+    }
+
+    pub(crate) fn setup_resource_b_output(amount: Option<usize>) -> TestInfo {
+        let flow = setup_flow_resource_b(amount);
+        let manage_flow = ManageFlow::RecipeOutput(RecipeOutputResource::new(
+            flow.flow.resource.clone(),
             flow.flow.clone(),
         ));
 

@@ -210,7 +210,7 @@ pub(crate) trait ManageResourceFlow<T: Number> {
 #[cfg(test)]
 pub mod test {
     use crate::app::resources::resource_flow::ResourceFlow;
-    use crate::app::resources::test::setup_resource_a;
+    use crate::app::resources::test::{setup_resource_a, setup_resource_b};
     use crate::app::resources::{RatePer, ResourceDefinition};
 
     pub(crate) struct TestInfo {
@@ -221,10 +221,25 @@ pub mod test {
         pub rate: RatePer,
     }
 
-    pub(crate) fn setup_flow_resource_a() -> TestInfo {
+    pub(crate) fn setup_flow_resource_a(amount: Option<usize>) -> TestInfo {
         let resource = setup_resource_a();
-        let amount_per_cycle = 2;
-        let amount = 2.0f32;
+        let amount_per_cycle = amount.unwrap_or(2);
+        let amount = amount_per_cycle as f32;
+        let rate = RatePer::Minute;
+
+        TestInfo {
+            flow: ResourceFlow::new(&resource, amount_per_cycle, amount, rate),
+            resource,
+            amount_per_cycle,
+            amount,
+            rate,
+        }
+    }
+
+    pub(crate) fn setup_flow_resource_b(amount: Option<usize>) -> TestInfo {
+        let resource = setup_resource_b();
+        let amount_per_cycle = amount.unwrap_or(1);
+        let amount = amount_per_cycle as f32;
         let rate = RatePer::Minute;
 
         TestInfo {

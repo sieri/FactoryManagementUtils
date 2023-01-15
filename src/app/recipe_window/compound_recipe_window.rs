@@ -1,7 +1,10 @@
 use crate::app::commons::CommonsManager;
 use crate::app::recipe_graph::RecipeGraph;
 
-use crate::app::recipe_window::base_recipe_window::{BaseRecipeWindow, ConfigFeatures};
+use crate::app::error::ShowError;
+use crate::app::recipe_window::base_recipe_window::{
+    BaseRecipeWindow, ConfigFeatures, RecipeWindowUser,
+};
 use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::app::resources::recipe_input_resource::RecipeInputResource;
 use crate::app::resources::recipe_output_resource::RecipeOutputResource;
@@ -94,6 +97,24 @@ impl RecipeWindowGUI for CompoundRecipeWindow {
     fn generate_tooltip(&self) -> Result<String, Error> {
         todo!()
     }
+}
+
+impl RecipeWindowUser<'static> for CompoundRecipeWindow {
+    type Gen = CompoundRecipeWindow;
+
+    fn recipe(self) -> BaseRecipeWindow {
+        self.inner_recipe
+    }
+
+    fn push_errors(&mut self, e: ShowError) {
+        self.inner_recipe.errors.push(e);
+    }
+
+    fn gen_ids(&mut self) {
+        self.inner_recipe.gen_ids();
+    }
+
+    fn internal_calculation(&mut self) {}
 }
 
 #[cfg(test)]

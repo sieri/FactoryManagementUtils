@@ -21,10 +21,10 @@ pub struct ResourceSource {
     pub(crate) limited_output: bool,
 
     ///limit amount
-    limit_amount: usize,
+    pub(crate) limit_amount: f32,
 
     ///limit rate
-    limit_rate: RatePer,
+    pub(crate) limit_rate: RatePer,
 
     #[serde(skip)]
     window_coordinate: CoordinatesInfo,
@@ -119,9 +119,16 @@ impl ResourceSource {
                 ResourceFlow::new(&r, 10, 1.0f32, RatePer::Tick),
             ),
             limited_output: false,
-            limit_amount: 1,
+            limit_amount: 1.0,
             limit_rate: RatePer::Second,
             window_coordinate: Default::default(),
         }
+    }
+    pub fn limited_source(resource: String, amount: f32, rate: RatePer) -> Self {
+        let mut new = ResourceSource::new(resource);
+        new.limit_amount = amount;
+        new.limit_rate = rate;
+        new.limited_output = true;
+        new
     }
 }

@@ -5,6 +5,9 @@ use crate::app::recipe_window::base_recipe_window::{
 };
 use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 
+use crate::app::resources::resource_flow::ManageResourceFlow;
+use crate::app::resources::ManageFlow;
+use crate::utils::Io;
 use egui::Context;
 use std::fmt::Error;
 
@@ -76,6 +79,47 @@ impl RecipeWindowUser<'static> for SimpleRecipeWindow {
     fn gen_ids(&mut self) {
         self.inner_recipe.gen_ids();
     }
+
+    fn internal_calculation(&mut self) {
+        let mut min_rate = 1.0f32;
+        for input in self.inner_recipe.inputs.iter() {
+            match input {
+                ManageFlow::RecipeInput(input) => {
+                    println!("Resource: {}", input.resource().name);
+                    println!("inputs! {}", input.total_in().amount);
+                    println!("outputs! {}", input.total_out().amount);
+                    let rate = (input.total_in().amount / input.total_out().amount).min(1.0);
+                    min_rate = min_rate.min(rate);
+                }
+                ManageFlow::RecipeOutput(_) => {
+                    self.inner_recipe.errors.push(ShowError::new(
+                        "An input made its way to an output, this isn't possible".to_string(),
+                    ));
+                }
+            }
+        }
+        let res = self.inner_recipe.update_flow(Io::Output);
+        if let Err(e) = res {
+            self.push_errors(ShowError::new(e.str()))
+        }
+        println!("Min rate {}", min_rate);
+        if min_rate < 1.0 {
+            for output in self.inner_recipe.outputs.iter_mut() {
+                match output {
+                    ManageFlow::RecipeInput(_) => {
+                        self.inner_recipe.errors.push(ShowError::new(
+                            "An outputs made its way to an input, this isn't possible".to_string(),
+                        ));
+                    }
+                    ManageFlow::RecipeOutput(output) => {
+                        println!("before output.created.amount={}", output.created.amount);
+                        output.created.amount *= min_rate;
+                        println!("after output.created.amount={}", output.created.amount);
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -84,9 +128,12 @@ pub mod tests {
     use crate::app::recipe_window::base_recipe_window::tests::RecipeResourceInfos;
     use crate::app::recipe_window::base_recipe_window::RecipeWindowUser;
     use crate::app::recipe_window::simple_recipe_window::SimpleRecipeWindow;
-    use crate::app::recipe_window::test::setup_resource_a_input;
+    use crate::app::recipe_window::test::{
+        setup_resource_a_input, setup_resource_a_output, setup_resource_b_input,
+    };
     use crate::app::recipe_window::RecipeWindowGUI;
-    use crate::app::resources::{RatePer, ResourceDefinition, Unit};
+    use crate::app::resources::test::setup_resource_a;
+    use crate::app::resources::{ManageFlow, RatePer, ResourceDefinition, Unit};
     use serde::{Deserialize, Serialize};
     use std::io::Cursor;
 
@@ -114,12 +161,12 @@ pub mod tests {
         }
     }
 
-    pub(crate) fn setup_basic_recipe_one_to_one() -> TestInfo {
+    pub(crate) fn setup_simple_recipe_one_to_one() -> TestInfo {
         let title = "Test Window One To One";
         let mut w = SimpleRecipeWindow::new(title.to_string());
-        let resource_a = setup_resource_a_input();
+        let resource_a = setup_resource_a_input(None);
         w.inner_recipe.inputs.push(resource_a.manage_flow);
-
+        println!("Recipe! {:?}", w.inner_recipe.inputs);
         TestInfo {
             recipe: w,
             output_resource: vec![RecipeResourceInfos {
@@ -141,10 +188,37 @@ pub mod tests {
         }
     }
 
-    pub(crate) fn setup_list_of_window() -> [TestInfo; 2] {
+    pub(crate) fn setup_simple_recipe_one_to_one_b() -> TestInfo {
+        let resource_a = setup_resource_a();
+        let title = resource_a.name.clone();
+        let mut w = SimpleRecipeWindow::new(title.to_string());
+
+        let resource_b = setup_resource_b_input(None);
+        w.inner_recipe.inputs.push(resource_b.manage_flow);
+
+        TestInfo {
+            recipe: w,
+            output_resource: vec![RecipeResourceInfos {
+                def: resource_a,
+                amount: 1.0,
+                amount_per_cycle: 1,
+                rate: RatePer::Second,
+            }],
+
+            input_resource: vec![RecipeResourceInfos {
+                def: resource_b.flow.resource,
+                amount: resource_b.flow.amount,
+                amount_per_cycle: resource_b.flow.amount_per_cycle,
+                rate: resource_b.flow.rate,
+            }],
+        }
+    }
+
+    pub(crate) fn setup_list_of_window() -> [TestInfo; 3] {
         [
             setup_basic_recipe_window_empty(),
-            setup_basic_recipe_one_to_one(),
+            setup_simple_recipe_one_to_one(),
+            setup_simple_recipe_one_to_one_b(),
         ]
     }
 
@@ -177,7 +251,7 @@ pub mod tests {
     #[test]
     #[ignore = "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"] //TODO: FIX
     fn test_tooltip_one_to_one() {
-        let sample_window = setup_basic_recipe_one_to_one();
+        let sample_window = setup_simple_recipe_one_to_one();
         let expected = recipe_window::test::build_tooltip(
             [
                 "Test Window One To One",

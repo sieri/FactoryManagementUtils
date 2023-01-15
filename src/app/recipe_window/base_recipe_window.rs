@@ -829,6 +829,8 @@ pub trait RecipeWindowUser<'a>: serde::Serialize {
     }
 
     fn gen_ids(&mut self);
+
+    fn internal_calculation(&mut self);
 }
 
 #[cfg(test)]

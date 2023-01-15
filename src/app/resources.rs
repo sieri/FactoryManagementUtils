@@ -170,5 +170,12 @@ pub mod test {
         }
     }
 
+    pub(crate) fn setup_resource_b() -> ResourceDefinition {
+        ResourceDefinition {
+            name: "Resource A".to_string(),
+            unit: Unit::Piece,
+        }
+    }
+
     //-------------------Tests-------------------
 }

@@ -42,7 +42,7 @@ pub struct FactoryManagementApp {
 #[derive(Copy, Clone, Debug)]
 enum FlowCalculatorType {
     Helper(FlowCalculatorHelper),
-    EndRecipe(usize),
+    EndRecipe(usize, RecipeWindowType),
 }
 
 #[derive(Copy, Clone, Debug)]
