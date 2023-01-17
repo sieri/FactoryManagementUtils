@@ -11,6 +11,7 @@ use crate::app::resources::{FlowError, ManageFlow, RatePer, ResourceDefinition, 
 use crate::utils::{gen_id, Io};
 use egui::{Context, InnerResponse, Widget};
 use itertools::{EitherOrBoth, Itertools};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Write};
 use std::io::Cursor;
@@ -311,7 +312,6 @@ impl BaseRecipeWindow {
 
         if changed {
             if amount != flow.amount_per_cycle {
-                println!("Hello!");
                 match dir {
                     Io::Input => {
                         if self.config.interactive_input {
@@ -664,10 +664,10 @@ impl BaseRecipeWindow {
         let b2_len = colum_b_lengths.0 + colum_b_lengths.1 - 1;
         let empty = "".to_string();
 
-        // println!(
-        //     "a0_len = {}\na1_len = {}\na2_len = {}\nb0_len = {}\nb1_len = {}\nb2_len = {}\n",
-        //     a0_len, a1_len, a2_len, b0_len, b1_len, b2_len
-        // );
+        debug!(
+            "a0_len = {}\na1_len = {}\na2_len = {}\nb0_len = {}\nb1_len = {}\nb2_len = {}\n",
+            a0_len, a1_len, a2_len, b0_len, b1_len, b2_len
+        );
 
         writeln!(
             tooltip,

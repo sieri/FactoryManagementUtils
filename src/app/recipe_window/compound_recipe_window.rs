@@ -11,6 +11,7 @@ use crate::app::resources::recipe_output_resource::RecipeOutputResource;
 use crate::app::resources::resource_flow::ManageResourceFlow;
 use crate::app::resources::ManageFlow;
 use egui::Context;
+use log::{debug, trace};
 use std::fmt::Error;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -54,6 +55,23 @@ impl CompoundRecipeWindow {
     }
     fn update_interface(&mut self) {
         self.recipe_graph.calculate();
+        self.update_inputs();
+        self.update_outputs();
+    }
+
+    fn update_outputs(&mut self) {
+        self.inner_recipe.outputs.clear();
+        for sink in self.recipe_graph.sinks.iter() {
+            if let Some(flow) = &sink.sink {
+                debug!("And outputs!: {}", flow.total_in());
+                self.inner_recipe.outputs.push(ManageFlow::RecipeOutput(
+                    RecipeOutputResource::new(flow.resource().clone(), flow.total_in()),
+                ));
+            }
+        }
+    }
+
+    fn update_inputs(&mut self) {
         self.inner_recipe.inputs.clear();
         for source in self.recipe_graph.sources.iter() {
             self.inner_recipe
@@ -63,14 +81,29 @@ impl CompoundRecipeWindow {
                     source.output.total_out(),
                 )));
         }
-        self.inner_recipe.outputs.clear();
-        for sink in self.recipe_graph.sinks.iter() {
-            if let Some(flow) = &sink.sink {
-                self.inner_recipe.outputs.push(ManageFlow::RecipeOutput(
-                    RecipeOutputResource::new(flow.resource().clone(), flow.total_in()),
-                ));
+    }
+
+    /// Transmit the limit
+    pub(crate) fn limit_inputs(&mut self) {
+        trace!("limit_inputs start");
+        for (i, input) in self.inner_recipe.inputs.iter().enumerate() {
+            match input {
+                ManageFlow::RecipeInput(input) => {
+                    debug!("Resource: {}", input.resource().name);
+                    debug!("inputs! {}", input.total_in().amount);
+                    debug!("outputs! {}", input.total_out().amount);
+                    let input = input.total_in();
+                    self.recipe_graph.sources[i].limit_source(input.amount, input.rate);
+                    debug!("limit: {}", self.recipe_graph.sources[i].limited_output);
+                }
+                ManageFlow::RecipeOutput(_) => {
+                    self.inner_recipe.errors.push(ShowError::new(
+                        "An input made its way to an output, this isn't possible".to_string(),
+                    ));
+                }
             }
         }
+        trace!("limit_inputs end");
     }
 }
 
@@ -114,7 +147,11 @@ impl RecipeWindowUser<'static> for CompoundRecipeWindow {
         self.inner_recipe.gen_ids();
     }
 
-    fn internal_calculation(&mut self) {}
+    fn internal_calculation(&mut self) {
+        self.limit_inputs();
+        self.recipe_graph.calculate();
+        self.update_outputs();
+    }
 }
 
 #[cfg(test)]
@@ -123,9 +160,11 @@ pub mod tests {
     use crate::app::recipe_graph::RecipeGraph;
     use crate::app::recipe_window::base_recipe_window::tests::RecipeResourceInfos;
     use crate::app::recipe_window::compound_recipe_window::CompoundRecipeWindow;
+    use log::info;
 
     use crate::app::resources::ManageFlow;
     use crate::app::resources::ManageFlow::RecipeInput;
+    use crate::utils::test_env;
 
     pub(crate) struct TestInfo {
         pub recipe: CompoundRecipeWindow,
@@ -160,6 +199,10 @@ pub mod tests {
         pub(crate) fn setup_one_to_one_compound_two_levels() -> TestInfo {
             Self::setup_from_graph_info(RecipeGraph::setup_simple_compound_graph())
         }
+
+        pub(crate) fn setup_rate_limited_compound() -> TestInfo {
+            Self::setup_from_graph_info(RecipeGraph::setup_simple_compound_graph())
+        }
     }
 
     pub(crate) fn set_list_of_compounds_windows() -> [TestInfo; 2] {
@@ -187,7 +230,8 @@ pub mod tests {
 
     #[test]
     fn test_compound_windows() {
-        println!("====================Testing Compound Windows====================");
+        test_env::setup();
+        info!("====================Testing Compound Windows====================");
         let test_infos = set_list_of_compounds_windows();
 
         for test_info in test_infos.iter() {

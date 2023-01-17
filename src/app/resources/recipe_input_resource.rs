@@ -1,7 +1,7 @@
 use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
 use crate::app::resources::ResourceDefinition;
 use crate::utils;
-use crate::utils::Number;
+use crate::utils::{formatting, Number};
 
 ///an input resource for a recipe
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
@@ -79,7 +79,7 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
             format!("{}", self.needed.amount_per_cycle),
             format!(
                 "{}{}",
-                utils::float_format(self.needed.amount, 3),
+                formatting::float_format(self.needed.amount, 3),
                 self.needed.rate.to_shortened_string()
             ),
         ]

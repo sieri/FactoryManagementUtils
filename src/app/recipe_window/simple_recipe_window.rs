@@ -9,6 +9,7 @@ use crate::app::resources::resource_flow::ManageResourceFlow;
 use crate::app::resources::ManageFlow;
 use crate::utils::Io;
 use egui::Context;
+use log::{debug, trace};
 use std::fmt::Error;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -81,13 +82,14 @@ impl RecipeWindowUser<'static> for SimpleRecipeWindow {
     }
 
     fn internal_calculation(&mut self) {
+        trace!("[START] internal calculation for simple recipe window");
         let mut min_rate = 1.0f32;
         for input in self.inner_recipe.inputs.iter() {
             match input {
                 ManageFlow::RecipeInput(input) => {
-                    println!("Resource: {}", input.resource().name);
-                    println!("inputs! {}", input.total_in().amount);
-                    println!("outputs! {}", input.total_out().amount);
+                    debug!("Resource: {}", input.resource().name);
+                    debug!("inputs! {}", input.total_in().amount);
+                    debug!("outputs! {}", input.total_out().amount);
                     let rate = (input.total_in().amount / input.total_out().amount).min(1.0);
                     min_rate = min_rate.min(rate);
                 }
@@ -98,11 +100,12 @@ impl RecipeWindowUser<'static> for SimpleRecipeWindow {
                 }
             }
         }
+        trace!("[STOP] internal calculation for simple recipe window");
         let res = self.inner_recipe.update_flow(Io::Output);
         if let Err(e) = res {
             self.push_errors(ShowError::new(e.str()))
         }
-        println!("Min rate {}", min_rate);
+
         if min_rate < 1.0 {
             for output in self.inner_recipe.outputs.iter_mut() {
                 match output {
@@ -112,9 +115,7 @@ impl RecipeWindowUser<'static> for SimpleRecipeWindow {
                         ));
                     }
                     ManageFlow::RecipeOutput(output) => {
-                        println!("before output.created.amount={}", output.created.amount);
                         output.created.amount *= min_rate;
-                        println!("after output.created.amount={}", output.created.amount);
                     }
                 }
             }
@@ -128,26 +129,26 @@ pub mod tests {
     use crate::app::recipe_window::base_recipe_window::tests::RecipeResourceInfos;
     use crate::app::recipe_window::base_recipe_window::RecipeWindowUser;
     use crate::app::recipe_window::simple_recipe_window::SimpleRecipeWindow;
-    use crate::app::recipe_window::test::{
-        setup_resource_a_input, setup_resource_a_output, setup_resource_b_input,
-    };
+    use crate::app::recipe_window::test::{setup_resource_a_input, setup_resource_b_input};
     use crate::app::recipe_window::RecipeWindowGUI;
     use crate::app::resources::test::setup_resource_a;
-    use crate::app::resources::{ManageFlow, RatePer, ResourceDefinition, Unit};
+    use crate::app::resources::{RatePer, ResourceDefinition, Unit};
+    use crate::utils::test_env;
+    use log::info;
     use serde::{Deserialize, Serialize};
     use std::io::Cursor;
 
     pub(crate) struct TestInfo {
         pub recipe: SimpleRecipeWindow,
-        pub input_resource: Vec<RecipeResourceInfos>,
-        pub output_resource: Vec<RecipeResourceInfos>,
+        pub input_resources: Vec<RecipeResourceInfos>,
+        pub output_resources: Vec<RecipeResourceInfos>,
     }
 
     pub(crate) fn setup_basic_recipe_window_empty() -> TestInfo {
         let title = "Test Window Empty";
         TestInfo {
             recipe: SimpleRecipeWindow::new(title.to_string()),
-            output_resource: vec![RecipeResourceInfos {
+            output_resources: vec![RecipeResourceInfos {
                 def: ResourceDefinition {
                     name: title.to_string(),
                     unit: Unit::Piece,
@@ -157,7 +158,7 @@ pub mod tests {
                 rate: RatePer::Second,
             }],
 
-            input_resource: vec![],
+            input_resources: vec![],
         }
     }
 
@@ -166,10 +167,9 @@ pub mod tests {
         let mut w = SimpleRecipeWindow::new(title.to_string());
         let resource_a = setup_resource_a_input(None);
         w.inner_recipe.inputs.push(resource_a.manage_flow);
-        println!("Recipe! {:?}", w.inner_recipe.inputs);
         TestInfo {
             recipe: w,
-            output_resource: vec![RecipeResourceInfos {
+            output_resources: vec![RecipeResourceInfos {
                 def: ResourceDefinition {
                     name: title.to_string(),
                     unit: Unit::Piece,
@@ -179,7 +179,7 @@ pub mod tests {
                 rate: RatePer::Second,
             }],
 
-            input_resource: vec![RecipeResourceInfos {
+            input_resources: vec![RecipeResourceInfos {
                 def: resource_a.flow.resource,
                 amount: resource_a.flow.amount,
                 amount_per_cycle: resource_a.flow.amount_per_cycle,
@@ -191,21 +191,21 @@ pub mod tests {
     pub(crate) fn setup_simple_recipe_one_to_one_b() -> TestInfo {
         let resource_a = setup_resource_a();
         let title = resource_a.name.clone();
-        let mut w = SimpleRecipeWindow::new(title.to_string());
+        let mut w = SimpleRecipeWindow::new(title);
 
         let resource_b = setup_resource_b_input(None);
         w.inner_recipe.inputs.push(resource_b.manage_flow);
 
         TestInfo {
             recipe: w,
-            output_resource: vec![RecipeResourceInfos {
+            output_resources: vec![RecipeResourceInfos {
                 def: resource_a,
                 amount: 1.0,
                 amount_per_cycle: 1,
                 rate: RatePer::Second,
             }],
 
-            input_resource: vec![RecipeResourceInfos {
+            input_resources: vec![RecipeResourceInfos {
                 def: resource_b.flow.resource,
                 amount: resource_b.flow.amount,
                 amount_per_cycle: resource_b.flow.amount_per_cycle,
@@ -235,6 +235,7 @@ pub mod tests {
     #[test]
     #[ignore = "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"] //TODO: FIX
     fn test_tooltip_empty() {
+        test_env::setup();
         let sample_window = setup_basic_recipe_window_empty();
         let expected = recipe_window::test::build_tooltip(
             [
@@ -251,6 +252,7 @@ pub mod tests {
     #[test]
     #[ignore = "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"] //TODO: FIX
     fn test_tooltip_one_to_one() {
+        test_env::setup();
         let sample_window = setup_simple_recipe_one_to_one();
         let expected = recipe_window::test::build_tooltip(
             [
@@ -266,6 +268,7 @@ pub mod tests {
 
     #[test]
     fn test_serialization() {
+        test_env::setup();
         let originals = setup_list_of_window();
         let mut strings = Vec::new();
         for original in originals.iter() {
@@ -299,6 +302,7 @@ pub mod tests {
 
     #[test]
     fn test_save_and_load() {
+        test_env::setup();
         let mut originals = setup_list_of_window();
         let mut saved = vec![];
         for original in originals.iter_mut() {

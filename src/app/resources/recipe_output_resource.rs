@@ -1,7 +1,7 @@
 use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
 use crate::app::resources::ResourceDefinition;
 use crate::utils;
-use crate::utils::Number;
+use crate::utils::{formatting, Number};
 
 ///an input resource for a recipe
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
@@ -55,12 +55,6 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
     }
 
     fn is_enough(&self) -> bool {
-        // println!(
-        //     "Is enough?\n name {} \n total_out {} \n created {}",
-        //     self.resource.name,
-        //     self.total_out(),
-        //     self.created
-        // );
         self.total_out() <= self.created
     }
 
@@ -83,7 +77,7 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
             format!("{}", self.created.amount_per_cycle),
             format!(
                 "{}{}",
-                utils::float_format(self.created.amount, 3),
+                formatting::float_format(self.created.amount, 3),
                 self.created.rate.to_shortened_string()
             ),
         ]

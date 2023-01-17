@@ -7,6 +7,7 @@ use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
 use crate::app::resources::{RatePer, ResourceDefinition, Unit};
 use crate::utils::gen_id;
 use egui::Widget;
+use log::debug;
 use std::fmt::Write;
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
@@ -25,6 +26,9 @@ pub struct ResourceSource {
 
     ///limit rate
     pub(crate) limit_rate: RatePer,
+
+    //force the limitation to be active
+    pub(crate) force_limited: bool,
 
     #[serde(skip)]
     window_coordinate: CoordinatesInfo,
@@ -121,6 +125,7 @@ impl ResourceSource {
             limited_output: false,
             limit_amount: 1.0,
             limit_rate: RatePer::Second,
+            force_limited: false,
             window_coordinate: Default::default(),
         }
     }
@@ -130,5 +135,13 @@ impl ResourceSource {
         new.limit_rate = rate;
         new.limited_output = true;
         new
+    }
+
+    pub fn limit_source(&mut self, amount: f32, rate: RatePer) {
+        debug!("Limiting source: amount={}{}", amount, rate);
+        self.limit_amount = amount;
+        self.limit_rate = rate;
+        self.force_limited = true;
+        self.limited_output = true;
     }
 }

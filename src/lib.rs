@@ -1,6 +1,6 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
 mod app;
-pub(crate) mod utils;
+pub mod utils;
 
 pub use app::FactoryManagementApp;
