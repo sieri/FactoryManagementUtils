@@ -1,6 +1,6 @@
 use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
 use crate::app::resources::ResourceDefinition;
-use crate::utils;
+
 use crate::utils::{formatting, Number};
 
 ///an input resource for a recipe

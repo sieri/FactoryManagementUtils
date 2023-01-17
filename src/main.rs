@@ -3,7 +3,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #[macro_use]
 extern crate log;
-extern crate factory_management_utils;
+
 use factory_management_utils::utils;
 
 // When compiling natively:

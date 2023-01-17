@@ -7,7 +7,7 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
     } else {
         log::LevelFilter::Warn
     };
-    let mut colors = ColoredLevelConfig::new()
+    let colors = ColoredLevelConfig::new()
         .trace(Color::Cyan)
         .debug(Color::Magenta)
         .info(Color::Green)

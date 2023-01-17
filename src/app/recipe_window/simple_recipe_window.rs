@@ -134,7 +134,7 @@ pub mod tests {
     use crate::app::resources::test::setup_resource_a;
     use crate::app::resources::{RatePer, ResourceDefinition, Unit};
     use crate::utils::test_env;
-    use log::info;
+    
     use serde::{Deserialize, Serialize};
     use std::io::Cursor;
 

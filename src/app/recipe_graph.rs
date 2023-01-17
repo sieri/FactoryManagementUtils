@@ -10,7 +10,7 @@ use crate::app::resources::recipe_output_resource::RecipeOutputResource;
 use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
 use crate::app::resources::ManageFlow;
 use crate::app::{FlowCalculatorHelper, FlowCalculatorType};
-use log::{debug, error, info, trace, warn};
+use log::{error, info, trace};
 use serde::{Deserialize, Serialize};
 use std::collections::LinkedList;
 
