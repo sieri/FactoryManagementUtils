@@ -129,6 +129,8 @@ impl ResourceSource {
             window_coordinate: Default::default(),
         }
     }
+
+    #[allow(dead_code)]
     pub fn limited_source(resource: String, amount: f32, rate: RatePer) -> Self {
         let mut new = ResourceSource::new(resource);
         new.limit_amount = amount;

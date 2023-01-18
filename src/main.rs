@@ -10,10 +10,7 @@ use factory_management_utils::utils;
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     utils::log::setup_logger().expect("Logger couldn't be initialized");
-    debug!("Sample debug");
-    info!("running");
-    warn!("sample warning");
-    error!("Error message");
+
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "Factory Management Utils",

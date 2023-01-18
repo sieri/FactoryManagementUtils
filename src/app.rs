@@ -18,6 +18,7 @@ use crate::utils::Io;
 use commons::CommonsManager;
 use eframe::Frame;
 use error::ShowError;
+use log::info;
 use resources::resource_flow::ManageResourceFlow;
 use std::time::Duration;
 
@@ -80,6 +81,7 @@ impl FactoryManagementApp {
         // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
             let mut loaded: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            info!("Initial calculations after load from app storage");
             loaded.current_graph.calculate();
             return loaded;
         }
@@ -484,10 +486,12 @@ impl FactoryManagementApp {
                 });
 
                 if ui.button("Calculate").clicked() {
+                    info!("Calculate button pressed");
                     self.current_graph.calculate();
                 }
 
                 if ui.button("Update all").clicked() {
+                    info!("Update all button pressed");
                     self.current_graph.calculate();
                     self.update_flows();
                 }

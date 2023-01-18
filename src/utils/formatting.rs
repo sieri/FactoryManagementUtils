@@ -1,6 +1,5 @@
 use crate::utils::FloatingNumber;
 use log::warn;
-use num_traits::{Float, One, ToPrimitive, Zero};
 
 pub fn float_format<F: FloatingNumber>(float: F, precision: usize) -> String {
     let a = float.abs();

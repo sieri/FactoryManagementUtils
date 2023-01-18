@@ -118,8 +118,8 @@ impl RecipeGraph {
     }
 
     fn connect_resources_helpers_ends(
-        simple_recipes_helpers: &mut Vec<(usize, LinkedList<FlowCalculatorType>)>,
-        compound_recipes_helpers: &mut Vec<(usize, LinkedList<FlowCalculatorType>)>,
+        simple_recipes_helpers: &mut [(usize, LinkedList<FlowCalculatorType>)],
+        compound_recipes_helpers: &mut [(usize, LinkedList<FlowCalculatorType>)],
         sinks_helpers: &mut LinkedList<FlowCalculatorType>,
         end_type: RecipeWindowType,
         end_window_index: usize,
@@ -474,6 +474,7 @@ fn add_flows(
 }
 
 #[cfg(test)]
+#[allow(dead_code)]
 pub mod tests {
     use crate::app::recipe_graph::RecipeGraph;
     use crate::app::recipe_window::arrow_flow::ArrowFlow;
@@ -489,7 +490,7 @@ pub mod tests {
     use eframe::epaint::ahash::HashMapExt;
     use egui::epaint::ahash::HashMap;
     use egui::{LayerId, Order};
-    use log::{error, info, warn};
+    use log::{debug, error, info, warn};
 
     #[derive(Debug)]
     pub(crate) struct TestInfo {
@@ -829,7 +830,7 @@ pub mod tests {
                 input_resource.amount / 2.0,
                 input_resource.rate,
             );
-
+            debug!("Resource source limiting: {}", input_resource.amount / 2.0);
             let mut first_arrow = ArrowFlow::new(
                 recipe_limited.output_resources.first().unwrap().def.clone(),
                 recipe_limited.recipe.inner_recipe.id,
@@ -921,10 +922,9 @@ pub mod tests {
         let test_infos = setup_test_graphs();
 
         for test_info in test_infos {
-            error!("Hey!!");
-            info!("\n-------------------------------------------------------------------------");
-            warn!("📍Start test on graph: {}📍", test_info.name);
+            info!("📍Start test on graph: {}📍", test_info.name);
             let mut graph = test_info.graph;
+            info!("Calculate for test");
             graph.calculate();
             let calculated_inputs = graph.get_calc_sources();
 

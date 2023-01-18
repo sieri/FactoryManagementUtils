@@ -11,7 +11,7 @@ use crate::app::resources::recipe_output_resource::RecipeOutputResource;
 use crate::app::resources::resource_flow::ManageResourceFlow;
 use crate::app::resources::ManageFlow;
 use egui::Context;
-use log::{debug, trace};
+use log::{debug, info, trace};
 use std::fmt::Error;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -54,6 +54,7 @@ impl CompoundRecipeWindow {
         graph
     }
     fn update_interface(&mut self) {
+        info!("Update the interfaces");
         self.recipe_graph.calculate();
         self.update_inputs();
         self.update_outputs();
@@ -148,6 +149,7 @@ impl RecipeWindowUser<'static> for CompoundRecipeWindow {
     }
 
     fn internal_calculation(&mut self) {
+        info!("Internal calculation");
         self.limit_inputs();
         self.recipe_graph.calculate();
         self.update_outputs();
@@ -155,6 +157,7 @@ impl RecipeWindowUser<'static> for CompoundRecipeWindow {
 }
 
 #[cfg(test)]
+#[allow(dead_code)]
 pub mod tests {
     use crate::app::recipe_graph;
     use crate::app::recipe_graph::RecipeGraph;
@@ -201,7 +204,7 @@ pub mod tests {
         }
 
         pub(crate) fn setup_rate_limited_compound() -> TestInfo {
-            Self::setup_from_graph_info(RecipeGraph::setup_simple_compound_graph())
+            Self::setup_from_graph_info(RecipeGraph::setup_rate_limited_graph())
         }
     }
 
