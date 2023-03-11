@@ -58,6 +58,10 @@ impl<T: Number> ManageResourceFlow<T> for RecipeOutputResource<T> {
         self.total_out() <= self.created
     }
 
+    fn is_more_than_enough(&self) -> bool {
+        self.total_out() < self.created
+    }
+
     fn resource(&self) -> ResourceDefinition {
         self.resource.clone()
     }

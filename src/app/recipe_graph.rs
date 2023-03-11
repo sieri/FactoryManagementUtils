@@ -8,11 +8,12 @@ use crate::app::recipe_window::RecipeWindowType;
 use crate::app::resources::recipe_input_resource::RecipeInputResource;
 use crate::app::resources::recipe_output_resource::RecipeOutputResource;
 use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
-use crate::app::resources::ManageFlow;
+use crate::app::resources::{FlowError, ManageFlow};
 use crate::app::{FlowCalculatorHelper, FlowCalculatorType};
-use log::{error, info, trace};
+use log::{debug, error, info, trace};
 use serde::{Deserialize, Serialize};
 use std::collections::LinkedList;
+use std::fmt::Display;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub(crate) struct RecipeGraph {
@@ -53,9 +54,10 @@ impl RecipeGraph {
 
         self.reset_flows();
         let arrows = self.arrows.clone();
-        //build relationships from arrows
+
+        trace!("build relationships from arrows");
         for arrow in arrows.iter() {
-            let (start_flow_index, start_type, start_window_index) = self.get_startpoint(arrow);
+            let (start_flow_index, start_type, start_window_index) = self.get_start_point(arrow);
 
             let (end_flow_index, end_type, end_window_index) = self.get_endpoint(arrow);
 
@@ -113,8 +115,9 @@ impl RecipeGraph {
             compound_recipes_helpers,
         );
 
-        //calculate
-        self.perform_calculation(&mut calculate_helper)
+        self.perform_calculation(&mut calculate_helper);
+
+        self.back_propagation(&mut calculate_helper);
     }
 
     fn connect_resources_helpers_ends(
@@ -183,7 +186,7 @@ impl RecipeGraph {
         (end_flow_index, end_type, end_window_index)
     }
 
-    fn get_startpoint(&mut self, arrow: &ArrowFlow) -> (usize, RecipeWindowType, Option<usize>) {
+    fn get_start_point(&mut self, arrow: &ArrowFlow) -> (usize, RecipeWindowType, Option<usize>) {
         let start_id = arrow.start_flow_window;
         let source_flow_index = arrow.start_flow_index;
         let source_type = arrow.start_flow_type;
@@ -214,7 +217,12 @@ impl RecipeGraph {
         mut recipes_helpers: Vec<(usize, LinkedList<FlowCalculatorType>)>,
         mut compound_recipes_helpers: Vec<(usize, LinkedList<FlowCalculatorType>)>,
     ) -> LinkedList<FlowCalculatorType> {
+        trace!("Concatenate helpers");
+
         let mut calculate_helper = sources_helpers;
+
+        recipes_helpers.append(&mut compound_recipes_helpers);
+        recipes_helpers.sort_by(|helper1, helper2| helper1.0.partial_cmp(&helper2.0).unwrap());
 
         for (i, (_, list)) in recipes_helpers.iter_mut().enumerate() {
             list.push_back(FlowCalculatorType::EndRecipe(
@@ -223,26 +231,17 @@ impl RecipeGraph {
             ));
             calculate_helper.append(list);
         }
-        for (i, (_, list)) in compound_recipes_helpers.iter_mut().enumerate() {
-            list.push_back(FlowCalculatorType::EndRecipe(
-                i,
-                RecipeWindowType::CompoundRecipe,
-            ));
-            calculate_helper.append(list);
-        }
-        recipes_helpers.append(&mut compound_recipes_helpers);
-        recipes_helpers.sort_by(|helper1, helper2| helper1.0.partial_cmp(&helper2.0).unwrap());
 
         calculate_helper.append(&mut sinks_helpers);
         calculate_helper
     }
 
     fn reset_flows(&mut self) {
+        trace!("Reset flows");
         //reset flows
         for source in self.sources.iter_mut() {
             trace!("reset source {:?}", source.output);
             source.output.reset();
-            trace!("reseted source {:?}", source.output);
         }
 
         for recipe in self.simple_recipes.iter_mut() {
@@ -265,6 +264,7 @@ impl RecipeGraph {
                 f.reset();
             }
         }
+        trace!("Done resetting!")
     }
 
     ///Perform the calculation from the calculate helpers
@@ -278,9 +278,10 @@ impl RecipeGraph {
                         let source_flow = &mut source.inner_recipe.outputs[h.start_flow_index];
                         match source_flow {
                             ManageFlow::RecipeInput(_) => {
-                                error!("Source flow shouldn't be a RecipeInput")
+                                error!("Source flows shouldn't be a RecipeInput")
                             }
                             ManageFlow::RecipeOutput(o) => {
+                                //source is simple recipe
                                 let used_flow = o.created.clone();
                                 let added_source = o.add_out_flow(used_flow.clone());
 
@@ -336,6 +337,7 @@ impl RecipeGraph {
                         }
                     }
                     RecipeWindowType::Source => {
+                        //source is a source
                         let source = &mut self.sources[h.start_window_index];
                         let end_flow = match h.end_type {
                             RecipeWindowType::SimpleRecipe => {
@@ -365,6 +367,8 @@ impl RecipeGraph {
                                 Some(f)
                             }
                         };
+
+                        //connect the end to the source when the source is a source
                         if let Some(end_flow) = end_flow {
                             if source.limited_output {
                                 let resource = source.output.created.resource.clone();
@@ -377,6 +381,7 @@ impl RecipeGraph {
                                 add_flows(&mut source.output, end_flow, used_flow);
                             } else {
                                 let used_flow = end_flow.needed.clone();
+                                debug!("Flow used for output of a source {}", used_flow);
                                 add_flows(&mut source.output, end_flow, used_flow);
                             }
                         }
@@ -458,6 +463,122 @@ impl RecipeGraph {
             }
         }
     }
+
+    /// Get the rate to limit a flow in back propagation according to the end point of a helper
+    ///
+    /// # Arguments
+    ///
+    /// * `helper`: the helper to read
+    ///
+    /// returns: rate of limitation, optional amount information
+    fn get_back_rate(
+        &mut self,
+        helper: FlowCalculatorType,
+    ) -> (f32, Option<ResourceFlow<usize, f32>>) {
+        match helper {
+            FlowCalculatorType::Helper(h) => match h.end_type {
+                RecipeWindowType::SimpleRecipe => {
+                    let end = &mut self.simple_recipes[h.end_window_index];
+                    let end_flow = &mut end.inner_recipe.inputs[h.end_flow_index];
+
+                    match end_flow {
+                        ManageFlow::RecipeInput(i) => {
+                            debug!(
+                                "get back rate Resource: {}\n inputs! {}{}\n outputs! {}{}",
+                                i.resource().name,
+                                i.total_in().amount,
+                                i.total_in().rate.to_shortened_string(),
+                                i.total_out().amount,
+                                i.total_out().rate.to_shortened_string()
+                            );
+                            let rate_res = (i.total_out() / i.total_in());
+                            match rate_res {
+                                Ok(rate) => {
+                                    return (rate, Some(i.total_out()));
+                                }
+                                Err(error) => {
+                                    error!("Flow back propagation can't be calculated due to a '{}' on rate calculation", error.str())
+                                }
+                            }
+                        }
+                        ManageFlow::RecipeOutput(_) => {
+                            error!("End flow shouldn't be a RecipeOutput")
+                        }
+                    }
+                }
+                RecipeWindowType::CompoundRecipe => {
+                    let end = &mut self.compound_recipes[h.end_window_index];
+                    let end_flow = &mut end.inner_recipe.inputs[h.end_window_index];
+
+                    match end_flow {
+                        ManageFlow::RecipeInput(i) => {
+                            if i.is_more_than_enough() {
+                                let rate = i.total_out().amount / i.total_in().amount;
+                                return (rate, Some(i.total_out() * rate));
+                            }
+                        }
+                        ManageFlow::RecipeOutput(_) => {
+                            error!("End flow shouldn't be a RecipeOutput")
+                        }
+                    }
+                }
+                RecipeWindowType::Source => {
+                    error!("End of a flow shouldn't be a Source")
+                }
+                RecipeWindowType::Sink => {}
+            },
+            FlowCalculatorType::EndRecipe(_, _) => {}
+        };
+        (1.0, None)
+    }
+
+    fn back_propagation(&mut self, calculate_helper: &mut LinkedList<FlowCalculatorType>) {
+        debug!("Back propagation");
+        //reverse
+        let mut reverse_helper = LinkedList::new();
+
+        for _ in 0..calculate_helper.len() {
+            let calc = calculate_helper.pop_back();
+            if let Some(calc) = calc {
+                reverse_helper.push_back(calc);
+            }
+        }
+
+        for helper in reverse_helper {
+            let (rate, flow) = self.get_back_rate(helper);
+            debug!(
+                "Rate of back propagation {}, associated flow={:?}",
+                rate, flow
+            );
+            if rate == 1.0 {
+                continue;
+            }
+            match helper {
+                FlowCalculatorType::Helper(h) => match h.start_type {
+                    RecipeWindowType::SimpleRecipe => {
+                        let start = &mut self.simple_recipes[h.start_window_index];
+                        start.back_propagation_internal_calculation(rate, flow)
+                    }
+                    RecipeWindowType::CompoundRecipe => {
+                        let start = &mut self.compound_recipes[h.start_window_index];
+                        start.back_propagation_internal_calculation(rate, flow)
+                    }
+                    RecipeWindowType::Source => {
+                        let start = &mut self.sources[h.start_window_index];
+                        if let Some(flow) = flow {
+                            debug!("source flow back propagated {}", flow);
+                            start.output.reset();
+                            start.output.add_out_flow(flow);
+                        } else {
+                            panic!("Hey! you need a flow to set it")
+                        }
+                    }
+                    RecipeWindowType::Sink => {}
+                },
+                FlowCalculatorType::EndRecipe(_, _) => {}
+            }
+        }
+    }
 }
 
 fn add_flows(
@@ -481,16 +602,28 @@ pub mod tests {
     use crate::app::recipe_window::compound_recipe_window::CompoundRecipeWindow;
     use crate::app::recipe_window::resource_sink::ResourceSink;
     use crate::app::recipe_window::resources_sources::ResourceSource;
-    use crate::app::recipe_window::simple_recipe_window::tests::setup_simple_recipe_one_to_one;
+    use crate::app::recipe_window::simple_recipe_window::tests::{
+        setup_simple_recipe_one_to_one, setup_simple_recipe_one_to_one_b,
+        setup_simple_recipe_one_to_one_custom,
+    };
+    use crate::app::recipe_window::test::{
+        setup_resource_a_input, setup_resource_b_input, setup_resource_b_output,
+        setup_resource_input, setup_resource_output,
+    };
     use crate::app::recipe_window::RecipeWindowType;
-    use crate::app::resources::resource_flow::test::setup_flow_resource_a;
+    use crate::app::resources::resource_flow::test::{
+        setup_flow_resource, setup_flow_resource_a, setup_flow_resource_b,
+    };
     use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
+    use crate::app::resources::test::setup_resource;
+    use crate::app::resources::RatePer::Minute;
     use crate::app::resources::{RatePer, ResourceDefinition};
     use crate::utils::test_env;
     use eframe::epaint::ahash::HashMapExt;
     use egui::epaint::ahash::HashMap;
     use egui::{LayerId, Order};
-    use log::{debug, error, info, warn};
+    use log::{debug, info};
+    use std::fmt::{Display, Formatter};
 
     #[derive(Debug)]
     pub(crate) struct TestInfo {
@@ -498,6 +631,21 @@ pub mod tests {
         pub graph: RecipeGraph,
         pub inputs: Vec<ResourceFlow<usize, f32>>,
         pub outputs: Vec<ResourceFlow<usize, f32>>,
+    }
+
+    impl Display for TestInfo {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            writeln!(f, "\nName:{}", self.name)?;
+            writeln!(f, "Inputs:")?;
+            for input in self.inputs.iter() {
+                writeln!(f, "\t{}", input)?;
+            }
+            writeln!(f, "Outputs:")?;
+            for output in self.outputs.iter() {
+                writeln!(f, "\t{}", output)?;
+            }
+            Ok(())
+        }
     }
 
     impl RecipeGraph {
@@ -890,6 +1038,159 @@ pub mod tests {
             }
         }
 
+        pub(crate) fn setup_back_propagation_graph() -> TestInfo {
+            info!("Test setup back propagation graph🔜");
+            let dummy_layer: LayerId = LayerId {
+                order: Order::Background,
+                id: egui::Id::new("dummy"),
+            };
+            let name_in_resource = "Input Resource";
+            let name_mid_resource = "Middle Resource";
+            let name_out_resource = "Output Resource";
+            let mut graph = RecipeGraph::new();
+
+            let first_recipe = setup_simple_recipe_one_to_one_custom(
+                Some(setup_resource_input(setup_flow_resource(
+                    setup_resource(name_in_resource),
+                    8,
+                    RatePer::Minute,
+                ))),
+                Some(setup_resource_output(setup_flow_resource(
+                    setup_resource(name_mid_resource),
+                    4,
+                    RatePer::Minute,
+                ))),
+            );
+            let second_recipe = setup_simple_recipe_one_to_one_custom(
+                Some(setup_resource_input(setup_flow_resource(
+                    setup_resource(name_mid_resource),
+                    2,
+                    RatePer::Minute,
+                ))),
+                Some(setup_resource_output(setup_flow_resource(
+                    setup_resource(name_out_resource),
+                    1,
+                    RatePer::Minute,
+                ))),
+            );
+            let sink = ResourceSink::new();
+
+            let input_resource = first_recipe
+                .input_resources
+                .first()
+                .expect("Input resource error")
+                .clone();
+
+            let mid_resource = second_recipe
+                .input_resources
+                .first()
+                .expect("Input resource error")
+                .clone();
+
+            let mid_resource_output = first_recipe
+                .output_resources
+                .first()
+                .expect("Output resource error")
+                .clone();
+
+            info!("Input resource:{:?}", input_resource);
+            info!("mid resource:{:?}", mid_resource);
+            info!("mid resource output:{:?}", mid_resource_output);
+
+            assert_eq!(
+                mid_resource.def, mid_resource_output.def,
+                "Setup not possible, the mid resources don't match"
+            );
+
+            assert_eq!(mid_resource.rate,mid_resource_output.rate,
+                       "Setup not possible, Resource output in the second recipe need to be the same resource rate for ease of first calculation");
+            assert!(mid_resource.amount<mid_resource_output.amount,
+                    "Setup not possible, Resource output in the second recipe need to be less than the resource input");
+
+            let limit_rate = mid_resource.amount / mid_resource_output.amount;
+            info!("Limit rate calculated:{}", limit_rate);
+            //source
+            let source = ResourceSource::new(input_resource.def.name.clone());
+
+            //first arrow: second_recipe->Sink
+            let mut first_arrow = ArrowFlow::new(
+                second_recipe.output_resources.first().unwrap().def.clone(),
+                second_recipe.recipe.inner_recipe.id,
+                RecipeWindowType::SimpleRecipe,
+                dummy_layer,
+                0,
+            );
+            first_arrow
+                .put_end(
+                    Some(second_recipe.output_resources.first().unwrap().def.clone()),
+                    sink.id,
+                    RecipeWindowType::Sink,
+                    0,
+                )
+                .expect("arrow error");
+
+            // second arrow: first_recipe -> second_recipe
+            let mut second_arrow = ArrowFlow::new(
+                mid_resource.def.clone(),
+                first_recipe.recipe.inner_recipe.id,
+                RecipeWindowType::SimpleRecipe,
+                dummy_layer,
+                0,
+            );
+            second_arrow
+                .put_end(
+                    Some(mid_resource.def.clone()),
+                    second_recipe.recipe.inner_recipe.id,
+                    RecipeWindowType::SimpleRecipe,
+                    0,
+                )
+                .expect("arrow error");
+
+            // third arrow: source -> recipe1t1b
+            let mut third_arrow = ArrowFlow::new(
+                input_resource.def.clone(),
+                source.id,
+                RecipeWindowType::Source,
+                dummy_layer,
+                0,
+            );
+            third_arrow
+                .put_end(
+                    Some(input_resource.def.clone()),
+                    first_recipe.recipe.inner_recipe.id,
+                    RecipeWindowType::SimpleRecipe,
+                    0,
+                )
+                .expect("arrow error");
+            graph.simple_recipes.push(second_recipe.recipe);
+            graph.simple_recipes.push(first_recipe.recipe);
+            graph.arrows.push(first_arrow);
+            graph.arrows.push(second_arrow);
+            graph.arrows.push(third_arrow);
+            graph.sources.push(source);
+            graph.sinks.push(sink);
+
+            //build info
+            let input = first_recipe.input_resources.first().unwrap();
+            let output = second_recipe.output_resources.first().unwrap();
+            TestInfo {
+                name: "back propagation".to_string(),
+                graph,
+                inputs: vec![ResourceFlow::new(
+                    &input.def.clone(),
+                    input.amount_per_cycle,
+                    input.amount * limit_rate,
+                    input.rate,
+                )],
+                outputs: vec![ResourceFlow::new(
+                    &output.def.clone(),
+                    output.amount_per_cycle,
+                    output.amount,
+                    output.rate,
+                )],
+            }
+        }
+
         fn get_calc_sources(&self) -> HashMap<ResourceDefinition, (f32, RatePer)> {
             let mut result = HashMap::new();
             for source in self.sources.iter() {
@@ -919,10 +1220,16 @@ pub mod tests {
     #[test]
     fn test_calculation() {
         test_env::setup();
-        let test_infos = setup_test_graphs();
+        let tests_info = setup_test_graphs();
 
-        for test_info in test_infos {
+        for test_info in tests_info {
             info!("📍Start test on graph: {}📍", test_info.name);
+
+            info!(
+                ">\n======================{}======================",
+                test_info
+            );
+
             let mut graph = test_info.graph;
             info!("Calculate for test");
             graph.calculate();
@@ -934,11 +1241,11 @@ pub mod tests {
                 let calculated = calculated_inputs
                     .get(&resource)
                     .expect("no data in the resource");
+                assert_eq!(calculated.1, input.rate, "Rate of an input doesn't match");
                 assert_eq!(
-                    input.amount, calculated.0,
+                    calculated.0, input.amount,
                     "Amount of an input doesn't match",
                 );
-                assert_eq!(calculated.1, input.rate, "Rate of an input doesn't match");
             }
             let calculated_outputs = graph.get_calc_sinks();
 
@@ -958,12 +1265,13 @@ pub mod tests {
 
     pub(crate) fn setup_test_graphs() -> [TestInfo; 1] {
         [
-            //   RecipeGraph::setup_empty_graph(),
-            //   RecipeGraph::setup_simple_graph(),
-            //   RecipeGraph::setup_simple_compound_graph(),
-            //   RecipeGraph::setup_simple_compound_graph_two_levels(),
-            //RecipeGraph::setup_rate_limited_graph(),
-            RecipeGraph::setup_rate_limited_compound_graph(),
+            // RecipeGraph::setup_empty_graph(),
+            //RecipeGraph::setup_simple_graph(),
+            RecipeGraph::setup_simple_compound_graph(),
+            //RecipeGraph::setup_simple_compound_graph_two_levels(),
+            // RecipeGraph::setup_rate_limited_graph(),
+            // RecipeGraph::setup_rate_limited_compound_graph(),
+            //RecipeGraph::setup_back_propagation_graph(),
         ]
     }
 }

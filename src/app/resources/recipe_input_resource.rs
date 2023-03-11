@@ -1,5 +1,6 @@
 use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
 use crate::app::resources::ResourceDefinition;
+use log::debug;
 
 use crate::utils::{formatting, Number};
 
@@ -33,7 +34,18 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
         if flow.resource != self.resource {
             return false;
         }
+        debug!("Add flow to an input {}", flow);
+        debug!(
+            "inputs! {}{}",
+            self.total_in().amount,
+            self.total_in().rate.to_shortened_string()
+        );
         self.inputs.push(flow);
+        debug!(
+            "inputs! {}{}",
+            self.total_in().amount,
+            self.total_in().rate.to_shortened_string()
+        );
         true
     }
 
@@ -58,6 +70,15 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
 
     fn is_enough(&self) -> bool {
         self.total_in() >= self.needed
+    }
+
+    fn is_more_than_enough(&self) -> bool {
+        let total_in = self.total_in();
+        debug!(
+            "Is more than enough total_in={}{} needed={}{}",
+            total_in.amount, total_in.rate, self.needed.amount, self.needed.rate
+        );
+        total_in > self.needed
     }
 
     fn resource(&self) -> ResourceDefinition {

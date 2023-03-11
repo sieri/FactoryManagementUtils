@@ -91,7 +91,7 @@ pub struct ResourceDefinition {
 
 impl Display for ResourceDefinition {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Resource(name={})", self.name)?;
+        write!(f, "{}", self.name)?;
         Ok(())
     }
 }
@@ -120,12 +120,12 @@ impl<T: Number> ManageFlow<T> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub(crate) enum FlowErrorType {
+pub enum FlowErrorType {
     RateTooLowConversion(RatePer, RatePer),
     WrongResourceType,
 }
 
-pub(crate) struct FlowError {
+pub struct FlowError {
     error_type: FlowErrorType,
 }
 
@@ -172,7 +172,14 @@ pub mod test {
 
     pub(crate) fn setup_resource_b() -> ResourceDefinition {
         ResourceDefinition {
-            name: "Resource A".to_string(),
+            name: "Resource B".to_string(),
+            unit: Unit::Piece,
+        }
+    }
+
+    pub(crate) fn setup_resource(name: &str) -> ResourceDefinition {
+        ResourceDefinition {
+            name: name.to_string(),
             unit: Unit::Piece,
         }
     }

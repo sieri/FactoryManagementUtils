@@ -8,7 +8,7 @@ use crate::app::recipe_window::base_recipe_window::{
 use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
 use crate::app::resources::recipe_input_resource::RecipeInputResource;
 use crate::app::resources::recipe_output_resource::RecipeOutputResource;
-use crate::app::resources::resource_flow::ManageResourceFlow;
+use crate::app::resources::resource_flow::{ManageResourceFlow, ResourceFlow};
 use crate::app::resources::ManageFlow;
 use egui::Context;
 use log::{debug, info, trace};
@@ -91,8 +91,16 @@ impl CompoundRecipeWindow {
             match input {
                 ManageFlow::RecipeInput(input) => {
                     debug!("Resource: {}", input.resource().name);
-                    debug!("inputs! {}", input.total_in().amount);
-                    debug!("outputs! {}", input.total_out().amount);
+                    debug!(
+                        "inputs! {}{}",
+                        input.total_in().amount,
+                        input.total_in().rate.to_shortened_string()
+                    );
+                    debug!(
+                        "outputs! {}{}",
+                        input.total_out().amount,
+                        input.total_out().rate.to_shortened_string()
+                    );
                     let input = input.total_in();
                     self.recipe_graph.sources[i].limit_source(input.amount, input.rate);
                     debug!("limit: {}", self.recipe_graph.sources[i].limited_output);
@@ -153,6 +161,27 @@ impl RecipeWindowUser<'static> for CompoundRecipeWindow {
         self.limit_inputs();
         self.recipe_graph.calculate();
         self.update_outputs();
+    }
+
+    fn back_propagation_internal_calculation(
+        &mut self,
+        rate: f32,
+        amount: Option<ResourceFlow<usize, f32>>,
+    ) {
+        trace!("[START] back propagation internal calculation for compound recipe window");
+
+        for input in self.inner_recipe.inputs.iter_mut() {
+            match input {
+                ManageFlow::RecipeInput(input) => input.needed.amount *= rate,
+                ManageFlow::RecipeOutput(_) => {
+                    self.inner_recipe.errors.push(ShowError::new(
+                        "An input made its way to an output, this isn't possible".to_string(),
+                    ));
+                }
+            }
+        }
+
+        trace!("[END] back propagation internal calculation for compound recipe window");
     }
 }
 

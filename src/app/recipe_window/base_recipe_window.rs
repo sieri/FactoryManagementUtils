@@ -112,15 +112,32 @@ impl BaseRecipeWindow {
     ///
     /// returns: BasicRecipeWindowDescriptor
     pub fn new(title: String, config: ConfigFeatures, recipe_type: RecipeWindowType) -> Self {
+        Self::new_with_custom_output(
+            config,
+            recipe_type,
+            ResourceFlow::new(
+                &ResourceDefinition {
+                    name: title.to_string(),
+                    unit: Unit::Piece,
+                },
+                1,
+                1.0,
+                RatePer::Second,
+            ),
+        )
+    }
+
+    pub fn new_with_custom_output(
+        config: ConfigFeatures,
+        recipe_type: RecipeWindowType,
+        flow: ResourceFlow<usize, f32>,
+    ) -> Self {
+        let title = flow.resource.name.clone();
         let id = gen_id(title.clone());
         let tooltip_id = id.with("Tooltip");
         let temp_tooltip_id = id.with("Temp Tooltip");
-        let resource = ResourceDefinition {
-            name: title.clone(),
-            unit: Unit::Piece,
-        };
-        let mut flow = ResourceFlow::new(&resource, 1, 1.0f32, RatePer::Second);
-        let _ = flow.convert_time_base(1, RatePer::Second);
+        let resource = flow.resource.clone();
+
         let output = RecipeOutput(RecipeOutputResource::new(resource, flow));
         Self {
             title,
@@ -831,6 +848,12 @@ pub trait RecipeWindowUser<'a>: serde::Serialize {
     fn gen_ids(&mut self);
 
     fn internal_calculation(&mut self);
+
+    fn back_propagation_internal_calculation(
+        &mut self,
+        rate: f32,
+        amount: Option<ResourceFlow<usize, f32>>,
+    );
 }
 
 #[cfg(test)]

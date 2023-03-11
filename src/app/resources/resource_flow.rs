@@ -3,13 +3,15 @@ use crate::app::resources::{
     TICKS_TO_SECONDS,
 };
 use crate::utils::{FloatingNumber, Number};
+use log::debug;
 use num_traits::NumCast;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
+use std::ops::{Div, Mul};
 
 ///A flow of resource
 #[derive(Debug, PartialEq, Clone, serde::Deserialize, serde::Serialize)]
-pub(crate) struct ResourceFlow<T: Number, F: FloatingNumber> {
+pub struct ResourceFlow<T: Number, F: FloatingNumber> {
     pub resource: ResourceDefinition,
     pub amount_per_cycle: T,
     pub amount: F,
@@ -37,8 +39,10 @@ impl<T: Number, F: FloatingNumber> Display for ResourceFlow<T, F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "ResourceFlow(resource={}, amount_per_cycle={}, amount={}, rate={})",
-            self.resource, self.amount_per_cycle, self.amount, self.rate
+            "\t{}: {}{}",
+            self.resource,
+            self.amount,
+            self.rate.to_shortened_string()
         )?;
         Ok(())
     }
@@ -162,6 +166,45 @@ impl<T: Number, F: FloatingNumber> ResourceFlow<T, F> {
     }
 }
 
+impl<T, F> Mul<F> for ResourceFlow<T, F>
+where
+    T: Number,
+    F: FloatingNumber,
+{
+    type Output = ResourceFlow<T, F>;
+
+    fn mul(self, rhs: F) -> Self::Output {
+        let mut flow = self.clone();
+        flow.amount = flow.amount * rhs;
+        flow
+    }
+}
+
+impl<T, F> Div for ResourceFlow<T, F>
+where
+    T: Number,
+    F: FloatingNumber,
+{
+    type Output = Result<F, FlowError>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        if self.resource != rhs.resource {
+            // doesn't add if the resource doesn't match
+            return Err(FlowError::new(FlowErrorType::WrongResourceType));
+        }
+
+        if self.rate == rhs.rate {
+            Ok(self.amount / rhs.amount)
+        } else if self.rate > rhs.rate {
+            let amount = rhs.convert_amount(self.rate)?;
+            Ok(self.amount / amount)
+        } else {
+            let amount = self.convert_amount(rhs.rate)?;
+            Ok(amount / rhs.amount)
+        }
+    }
+}
+
 ///generic trait for any structure that manage a resource flow
 pub(crate) trait ManageResourceFlow<T: Number> {
     /// Add a amount to flow inside the resource container
@@ -190,6 +233,9 @@ pub(crate) trait ManageResourceFlow<T: Number> {
 
     ///indicate the flow is enough
     fn is_enough(&self) -> bool;
+
+    /// indicate the flow is more than enough
+    fn is_more_than_enough(&self) -> bool;
 
     ///the ``ResourceDefinition`` representing the flow
     fn resource(&self) -> ResourceDefinition;
@@ -236,11 +282,28 @@ pub mod test {
         }
     }
 
-    pub(crate) fn setup_flow_resource_b(amount: Option<usize>) -> TestInfo {
+    pub(crate) fn setup_flow_resource_b(amount: Option<usize>, rate: Option<RatePer>) -> TestInfo {
         let resource = setup_resource_b();
         let amount_per_cycle = amount.unwrap_or(1);
+        let rate = rate.unwrap_or(RatePer::Minute);
         let amount = amount_per_cycle as f32;
-        let rate = RatePer::Minute;
+
+        TestInfo {
+            flow: ResourceFlow::new(&resource, amount_per_cycle, amount, rate),
+            resource,
+            amount_per_cycle,
+            amount,
+            rate,
+        }
+    }
+
+    pub(crate) fn setup_flow_resource(
+        resource: ResourceDefinition,
+        amount: usize,
+        rate: RatePer,
+    ) -> TestInfo {
+        let amount_per_cycle = amount;
+        let amount = amount_per_cycle as f32;
 
         TestInfo {
             flow: ResourceFlow::new(&resource, amount_per_cycle, amount, rate),

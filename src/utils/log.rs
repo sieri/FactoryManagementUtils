@@ -3,7 +3,7 @@
 pub fn setup_logger() -> Result<(), fern::InitError> {
     use fern::colors::{Color, ColoredLevelConfig};
     let level = if cfg!(debug_assertions) {
-        log::LevelFilter::Debug
+        log::LevelFilter::Trace
     } else {
         log::LevelFilter::Warn
     };

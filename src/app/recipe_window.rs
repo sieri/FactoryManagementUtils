@@ -59,52 +59,72 @@ pub mod test {
         setup_flow_resource_a, setup_flow_resource_b,
     };
     use crate::app::resources::test::setup_resource_a;
-    use crate::app::resources::{resource_flow, ManageFlow};
+    use crate::app::resources::{resource_flow, ManageFlow, RatePer};
     use std::fmt::Write;
 
-    pub(crate) struct TestInfo {
+    pub(crate) struct ManageFlowTestInfo {
         pub manage_flow: ManageFlow<usize>,
         pub flow: resource_flow::test::TestInfo,
     }
-
-    pub(crate) fn setup_resource_a_input(amount: Option<usize>) -> TestInfo {
+    #[deprecated]
+    pub(crate) fn setup_resource_a_input(amount: Option<usize>) -> ManageFlowTestInfo {
         let flow = setup_flow_resource_a(amount);
         let manage_flow = ManageFlow::RecipeInput(RecipeInputResource::new(
             setup_resource_a(),
             flow.flow.clone(),
         ));
 
-        TestInfo { manage_flow, flow }
+        ManageFlowTestInfo { manage_flow, flow }
     }
-
-    pub(crate) fn setup_resource_a_output(amount: Option<usize>) -> TestInfo {
+    #[deprecated]
+    pub(crate) fn setup_resource_a_output(amount: Option<usize>) -> ManageFlowTestInfo {
         let flow = setup_flow_resource_a(amount);
         let manage_flow = ManageFlow::RecipeOutput(RecipeOutputResource::new(
             flow.flow.resource.clone(),
             flow.flow.clone(),
         ));
 
-        TestInfo { manage_flow, flow }
+        ManageFlowTestInfo { manage_flow, flow }
     }
 
-    pub(crate) fn setup_resource_b_input(amount: Option<usize>) -> TestInfo {
-        let flow = setup_flow_resource_b(amount);
+    #[deprecated]
+    pub(crate) fn setup_resource_b_input(
+        amount: Option<usize>,
+        rate: Option<RatePer>,
+    ) -> ManageFlowTestInfo {
+        let flow = setup_flow_resource_b(amount, rate);
         let manage_flow = ManageFlow::RecipeInput(RecipeInputResource::new(
             flow.flow.resource.clone(),
             flow.flow.clone(),
         ));
 
-        TestInfo { manage_flow, flow }
+        ManageFlowTestInfo { manage_flow, flow }
     }
-
-    pub(crate) fn setup_resource_b_output(amount: Option<usize>) -> TestInfo {
-        let flow = setup_flow_resource_b(amount);
+    #[deprecated]
+    pub(crate) fn setup_resource_b_output(amount: Option<usize>) -> ManageFlowTestInfo {
+        let flow = setup_flow_resource_b(amount, None);
         let manage_flow = ManageFlow::RecipeOutput(RecipeOutputResource::new(
             flow.flow.resource.clone(),
             flow.flow.clone(),
         ));
 
-        TestInfo { manage_flow, flow }
+        ManageFlowTestInfo { manage_flow, flow }
+    }
+
+    pub(crate) fn setup_resource_output(flow: resource_flow::test::TestInfo) -> ManageFlowTestInfo {
+        let manage_flow = ManageFlow::RecipeOutput(RecipeOutputResource::new(
+            flow.resource.clone(),
+            flow.flow.clone(),
+        ));
+        ManageFlowTestInfo { manage_flow, flow }
+    }
+
+    pub(crate) fn setup_resource_input(flow: resource_flow::test::TestInfo) -> ManageFlowTestInfo {
+        let manage_flow = ManageFlow::RecipeInput(RecipeInputResource::new(
+            flow.resource.clone(),
+            flow.flow.clone(),
+        ));
+        ManageFlowTestInfo { manage_flow, flow }
     }
 
     ///Build to tooltip by concatenate lines together from an array
