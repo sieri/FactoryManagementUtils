@@ -133,7 +133,7 @@ impl RecipeWindowUser<'static> for SimpleRecipeWindow {
     fn back_propagation_internal_calculation(
         &mut self,
         rate: f32,
-        amount: Option<ResourceFlow<usize, f32>>,
+        _amount: Option<ResourceFlow<usize, f32>>,
     ) {
         trace!("[START] back propagation internal calculation for simple recipe window");
         for input in self.inner_recipe.inputs.iter_mut() {
@@ -167,7 +167,7 @@ pub mod tests {
     };
     use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
     use crate::app::resources::test::setup_resource_a;
-    use crate::app::resources::{resource_flow, RatePer, ResourceDefinition, Unit};
+    use crate::app::resources::{RatePer, ResourceDefinition, Unit};
     use crate::utils::test_env;
 
     use crate::app::resources::resource_flow::ResourceFlow;
@@ -247,7 +247,7 @@ pub mod tests {
     #[deprecated]
     pub(crate) fn setup_simple_recipe_one_to_one_b() -> TestInfo {
         let resource_a = setup_resource_a();
-        let title = resource_a.name.clone();
+        let _title = resource_a.name.clone();
         let mut w = SimpleRecipeWindow::new_with_custom_output(ResourceFlow::new(
             &resource_a,
             3,
@@ -285,7 +285,7 @@ pub mod tests {
         let input = input.unwrap_or_else(|| setup_resource_a_input(None));
         let output = output.unwrap_or_else(|| setup_resource_b_output(None));
 
-        let title = output.flow.resource.name.clone();
+        let _title = output.flow.resource.name.clone();
         let mut w = SimpleRecipeWindow::new_with_custom_output(output.flow.flow.clone());
 
         w.inner_recipe.inputs.push(input.manage_flow);

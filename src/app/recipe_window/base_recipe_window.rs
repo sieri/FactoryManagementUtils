@@ -117,7 +117,7 @@ impl BaseRecipeWindow {
             recipe_type,
             ResourceFlow::new(
                 &ResourceDefinition {
-                    name: title.to_string(),
+                    name: title,
                     unit: Unit::Piece,
                 },
                 1,
@@ -137,8 +137,9 @@ impl BaseRecipeWindow {
         let tooltip_id = id.with("Tooltip");
         let temp_tooltip_id = id.with("Temp Tooltip");
         let resource = flow.resource.clone();
-
+        let rate = flow.rate;
         let output = RecipeOutput(RecipeOutputResource::new(resource, flow));
+
         Self {
             title,
             id,
@@ -149,7 +150,7 @@ impl BaseRecipeWindow {
             power: None,
             resource_adding_windows: vec![],
             time_cycle: 1,
-            time_unit: RatePer::Second,
+            time_unit: rate,
             description: "".to_string(),
             description_open: false,
             stable_in: false,

@@ -1,4 +1,4 @@
-use crate::app::recipe_window::{RecipeWindowGUI, RecipeWindowType};
+use crate::app::recipe_window::{RecipeWindowGUI};
 use copypasta::{ClipboardContext, ClipboardProvider};
 use egui::{Context, Ui, Widget};
 #[cfg(not(target_arch = "wasm32"))]
@@ -38,24 +38,6 @@ pub struct FactoryManagementApp {
     current_graph: RecipeGraph,
     commons: CommonsManager,
     active_arrow: Option<ArrowFlow>,
-}
-
-#[derive(Copy, Clone, Debug)]
-enum FlowCalculatorType {
-    Helper(FlowCalculatorHelper),
-    EndRecipe(usize, RecipeWindowType),
-}
-
-#[derive(Copy, Clone, Debug)]
-struct FlowCalculatorHelper {
-    start_window_index: usize,
-    start_flow_index: usize,
-
-    end_window_index: usize,
-    end_flow_index: usize,
-
-    start_type: RecipeWindowType,
-    end_type: RecipeWindowType,
 }
 
 impl Default for FactoryManagementApp {

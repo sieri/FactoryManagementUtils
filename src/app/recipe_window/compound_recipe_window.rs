@@ -166,7 +166,7 @@ impl RecipeWindowUser<'static> for CompoundRecipeWindow {
     fn back_propagation_internal_calculation(
         &mut self,
         rate: f32,
-        amount: Option<ResourceFlow<usize, f32>>,
+        _amount: Option<ResourceFlow<usize, f32>>,
     ) {
         trace!("[START] back propagation internal calculation for compound recipe window");
 
@@ -233,7 +233,7 @@ pub mod tests {
         }
 
         pub(crate) fn setup_rate_limited_compound() -> TestInfo {
-            Self::setup_from_graph_info(RecipeGraph::setup_rate_limited_graph())
+            Self::setup_from_graph_info(RecipeGraph::setup_rate_limited_graph(2.0))
         }
     }
 

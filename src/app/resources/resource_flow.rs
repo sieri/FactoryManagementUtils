@@ -3,7 +3,7 @@ use crate::app::resources::{
     TICKS_TO_SECONDS,
 };
 use crate::utils::{FloatingNumber, Number};
-use log::debug;
+
 use num_traits::NumCast;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
@@ -174,7 +174,7 @@ where
     type Output = ResourceFlow<T, F>;
 
     fn mul(self, rhs: F) -> Self::Output {
-        let mut flow = self.clone();
+        let mut flow = self;
         flow.amount = flow.amount * rhs;
         flow
     }
