@@ -470,11 +470,6 @@ impl FactoryManagementApp {
                     info!("Calculate button pressed");
                     self.current_graph.calculate();
                 }
-
-                if ui.button("Update all").clicked() {
-                    info!("Update all button pressed");
-                    self.commons.recalculate;
-                }
             });
         }
     }
