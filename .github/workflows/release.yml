@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: taiki-e/create-gh-release-action@main
+      - uses: taiki-e/create-gh-release-action@v1
         with:
           # (optional) Path to changelog.
           changelog: CHANGELOG.md
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: taiki-e/upload-rust-binary-action@main
+      - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: factory_management_utils
           # Archive name (non-extension portion of filename) to be uploaded.
