@@ -237,6 +237,8 @@ pub(crate) trait ManageResourceFlow<T: Number> {
     /// indicate the flow is more than enough
     fn is_more_than_enough(&self) -> bool;
 
+    ///indicate the flow is connected to the outside
+    fn is_connected(&self) -> bool;
     ///the ``ResourceDefinition`` representing the flow
     fn resource(&self) -> ResourceDefinition;
 

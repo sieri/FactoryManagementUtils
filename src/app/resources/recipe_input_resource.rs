@@ -81,6 +81,10 @@ impl<T: Number> ManageResourceFlow<T> for RecipeInputResource<T> {
         total_in > self.needed
     }
 
+    fn is_connected(&self) -> bool {
+        !self.inputs.is_empty()
+    }
+
     fn resource(&self) -> ResourceDefinition {
         self.resource.clone()
     }

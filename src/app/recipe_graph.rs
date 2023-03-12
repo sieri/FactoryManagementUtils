@@ -112,7 +112,6 @@ impl RecipeGraph {
             }
         }
 
-        
         Self::concatenate_helpers(
             sources_helpers,
             sinks_helpers,
@@ -611,9 +610,7 @@ pub mod tests {
     use crate::app::recipe_window::compound_recipe_window::CompoundRecipeWindow;
     use crate::app::recipe_window::resource_sink::ResourceSink;
     use crate::app::recipe_window::resources_sources::ResourceSource;
-    use crate::app::recipe_window::simple_recipe_window::tests::{
-        setup_simple_recipe_one_to_one_custom,
-    };
+    use crate::app::recipe_window::simple_recipe_window::tests::setup_simple_recipe_one_to_one_custom;
     use crate::app::recipe_window::test::{setup_resource_input, setup_resource_output};
     use crate::app::recipe_window::RecipeWindowType;
     use crate::app::resources::resource_flow::test::{setup_flow_resource, setup_flow_resource_a};

@@ -237,10 +237,11 @@ pub mod tests {
         }
     }
 
-    pub(crate) fn set_list_of_compounds_windows() -> [TestInfo; 2] {
+    pub(crate) fn set_list_of_compounds_windows() -> [TestInfo; 3] {
         [
             CompoundRecipeWindow::setup_one_to_one_compound(),
             CompoundRecipeWindow::setup_one_to_one_compound_two_levels(),
+            CompoundRecipeWindow::setup_from_graph_info(RecipeGraph::setup_back_propagation_graph()),
         ]
     }
 

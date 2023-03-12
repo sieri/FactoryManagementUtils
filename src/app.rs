@@ -1,4 +1,4 @@
-use crate::app::recipe_window::{RecipeWindowGUI};
+use crate::app::recipe_window::RecipeWindowGUI;
 use copypasta::{ClipboardContext, ClipboardProvider};
 use egui::{Context, Ui, Widget};
 #[cfg(not(target_arch = "wasm32"))]
@@ -365,7 +365,6 @@ impl FactoryManagementApp {
                     match err {
                         Ok(_) => {
                             //connect arrow
-
                             self.current_graph
                                 .arrows
                                 .push(self.active_arrow.as_ref().unwrap().clone());
@@ -421,8 +420,8 @@ impl eframe::App for FactoryManagementApp {
         self.central_panel(ctx, error);
 
         if self.commons.recalculate {
-            self.current_graph.calculate();
             self.update_flows();
+            self.current_graph.calculate();
             self.commons.recalculate = false;
         }
     }
@@ -474,8 +473,7 @@ impl FactoryManagementApp {
 
                 if ui.button("Update all").clicked() {
                     info!("Update all button pressed");
-                    self.current_graph.calculate();
-                    self.update_flows();
+                    self.commons.recalculate;
                 }
             });
         }
