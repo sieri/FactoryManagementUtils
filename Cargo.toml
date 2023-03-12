@@ -15,13 +15,30 @@ eframe = { version = "0.20.0", default-features = false, features = [
     "persistence",   # Enable restoring app state when restarting the app.
 ] }
 
-# You only need serde if you want app persistence:
+# serializazion for app persistancy and file saves:
 serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.91"
+
+# logging
+log = "0.4.17"
+
+# clipboard management
+copypasta = "0.8.1"
+
+# numeric traits for the generics
+num-traits = "0.2.15"
+
+
+# itertools for help iterations
+itertools = "0.10.5"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tracing-subscriber = "0.3"
-
+# rusty file dialogs to open file dialogues
+rfd = {version = "0.10.0", features = ["default"]}
+fern = {version="0.6.1", features = ["colored"]}
+chrono = "0.4.23"
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
