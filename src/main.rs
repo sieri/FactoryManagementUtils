@@ -1,9 +1,9 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![allow(deprecated)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-
 use factory_management_utils::utils;
-
+#[cfg(target_arch = "wasm32")]
+use log::error;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]

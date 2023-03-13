@@ -7,7 +7,7 @@ use std::ops::AddAssign;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Once;
 
-use uuid::{Uuid};
+use uuid::Uuid;
 
 static ID_PREFIX_1: AtomicU64 = AtomicU64::new(0);
 static ID_PREFIX_2: AtomicU64 = AtomicU64::new(0);
