@@ -4,10 +4,10 @@ pub mod log;
 use num_traits::{Float, Num, NumCast, One, ToPrimitive};
 use std::fmt::Display;
 use std::ops::AddAssign;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Once;
 
-use uuid::{uuid, Uuid};
+use uuid::{Uuid};
 
 static ID_PREFIX_1: AtomicU64 = AtomicU64::new(0);
 static ID_PREFIX_2: AtomicU64 = AtomicU64::new(0);
@@ -52,11 +52,11 @@ pub fn id_init() {
     });
 }
 
-pub fn gen_id(name: String) -> egui::Id {
+pub fn gen_id(_name: String) -> egui::Id {
     let id_suffix = ID_SUFFIX.fetch_add(1, Ordering::SeqCst);
     let id_prefix_1 = ID_PREFIX_1.load(Ordering::SeqCst);
     let id_prefix_2 = ID_PREFIX_2.load(Ordering::SeqCst);
-    egui::Id::new(&*format!("{}{}{}", id_prefix_1, id_prefix_2, id_suffix))
+    egui::Id::new(&*format!("{id_prefix_1}{id_prefix_2}{id_suffix}"))
 }
 
 #[cfg(test)]
