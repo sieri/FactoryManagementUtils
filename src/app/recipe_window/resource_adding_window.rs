@@ -78,11 +78,8 @@ impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
                             .hint_text("resource name")
                             .show(ui)
                             .response
-                            .has_focus()
-                        {
-                            if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
-                                self.okay = true;
-                            }
+                            .has_focus() && ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+                            self.okay = true;
                         };
                         ui.label("Amount:");
 
@@ -106,10 +103,8 @@ impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
             });
 
         if let Some(inner) = response {
-            if inner.response.has_focus() {
-                if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    self.okay = true;
-                }
+            if inner.response.has_focus() && ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+                self.okay = true;
             }
         }
         open
