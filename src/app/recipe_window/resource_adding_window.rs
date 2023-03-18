@@ -78,7 +78,9 @@ impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
                             .hint_text("resource name")
                             .show(ui)
                             .response
-                            .has_focus() && ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+                            .has_focus()
+                            && ctx.input(|i| i.key_pressed(egui::Key::Enter))
+                        {
                             self.okay = true;
                         };
                         ui.label("Amount:");
