@@ -7,8 +7,8 @@ rust-version = "1.65"
 
 
 [dependencies]
-egui = "0.20.0"
-eframe = { version = "0.20.0", default-features = false, features = [
+egui = "0.21.0"
+eframe = { version = "0.21.3", default-features = false, features = [
     "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
@@ -28,7 +28,6 @@ copypasta = "0.8.1"
 # numeric traits for the generics
 num-traits = "0.2.15"
 
-
 # itertools for help iterations
 itertools = "0.10.5"
 
@@ -36,7 +35,7 @@ itertools = "0.10.5"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tracing-subscriber = "0.3"
 # rusty file dialogs to open file dialogues
-rfd = {version = "0.10.0", features = ["default"]}
+rfd = {version = "0.11.2", features = ["default"]}
 fern = {version="0.6.1", features = ["colored"]}
 chrono = "0.4.23"
 # web:

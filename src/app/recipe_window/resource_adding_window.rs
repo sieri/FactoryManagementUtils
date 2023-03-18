@@ -80,8 +80,7 @@ impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
                             .response
                             .has_focus()
                         {
-                            let input = ctx.input();
-                            if input.key_pressed(egui::Key::Enter) {
+                            if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
                                 self.okay = true;
                             }
                         };
@@ -108,8 +107,7 @@ impl<T: Number> RecipeWindowGUI for ResourceAddingWindow<T> {
 
         if let Some(inner) = response {
             if inner.response.has_focus() {
-                let input = ctx.input();
-                if input.key_pressed(egui::Key::Enter) {
+                if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
                     self.okay = true;
                 }
             }
