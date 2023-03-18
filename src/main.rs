@@ -1,7 +1,6 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![allow(deprecated)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-
 use factory_management_utils::utils;
 use log::error;
 
@@ -33,12 +32,14 @@ fn main() {
     let web_options = eframe::WebOptions::default();
 
     wasm_bindgen_futures::spawn_local(async {
-        eframe::start_web(
+        let res = eframe::start_web(
             "the_canvas_id", // hardcode it
             web_options,
             Box::new(|cc| Box::new(factory_management_utils::FactoryManagementApp::new(cc))),
         )
-        .await
-        .expect("failed to start eframe");
+        .await;
+        if let Err(e) = res {
+            error!("Eframe can't be loaded, probably need webGL{:?}", e)
+        }
     });
 }

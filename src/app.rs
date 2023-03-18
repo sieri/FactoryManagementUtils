@@ -14,7 +14,7 @@ use crate::app::recipe_window::compound_recipe_window::CompoundRecipeWindow;
 use crate::app::recipe_window::resource_sink::ResourceSink;
 use crate::app::recipe_window::resources_sources::ResourceSource;
 use crate::app::recipe_window::simple_recipe_window::SimpleRecipeWindow;
-use crate::utils::Io;
+use crate::utils::{id_init, Io};
 use commons::CommonsManager;
 use eframe::Frame;
 use error::ShowError;
@@ -56,6 +56,7 @@ impl Default for FactoryManagementApp {
 impl FactoryManagementApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        id_init();
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
