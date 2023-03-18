@@ -2,7 +2,6 @@
 #![allow(deprecated)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 use factory_management_utils::utils;
-#[cfg(target_arch = "wasm32")]
 use log::error;
 
 // When compiling natively:
@@ -11,11 +10,14 @@ fn main() {
     utils::log::setup_logger().expect("Logger couldn't be initialized");
 
     let native_options = eframe::NativeOptions::default();
-    eframe::run_native(
+    let r = eframe::run_native(
         "Factory Management Utils",
         native_options,
         Box::new(|cc| Box::new(factory_management_utils::FactoryManagementApp::new(cc))),
     );
+    if let Err(e) = r {
+        error!("can't run window natively: {}", e.to_string());
+    }
 }
 
 // when compiling to web using trunk.
