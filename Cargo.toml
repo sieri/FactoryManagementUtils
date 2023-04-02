@@ -34,6 +34,9 @@ itertools = "0.10.5"
 # uuid for generating unique ids each runs
 uuid = {version="1.3.0", features=["v4"]}
 
+# macro for pkg version
+pkg-version = "0.1.1"
+
 # ----------native:----------------------------------------------------------------------
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tracing-subscriber = "0.3"

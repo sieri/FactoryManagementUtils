@@ -62,6 +62,24 @@ jobs:
           command: test
           args: --lib
 
+  test-long:
+    name: Test Suite Long Ones
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: install gtk3
+        run: 'sudo apt update; sudo apt install libgtk-3-dev'
+      - run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libspeechd-dev libxkbcommon-dev libssl-dev
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --lib -- --ignored
+
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest

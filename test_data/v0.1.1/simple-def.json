@@ -1,0 +1,22 @@
+{
+  "inputs": [
+    {
+      "name": "Test input",
+      "amount": 4,
+      "rate": "Second"
+    },
+    {
+      "name": "Test Input 2",
+      "amount": 19.999998,
+      "rate": "Tick"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "Test",
+      "amount": 2,
+      "rate": "Second"
+    }
+  ],
+  "version": "0.1.1"
+}

@@ -7,14 +7,16 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
+use std::path::PathBuf;
 
+use crate::app::full_app_definition::{Definition, Total};
 use crate::app::recipe_graph::RecipeGraph;
 use crate::app::recipe_window::arrow_flow::ArrowFlow;
 use crate::app::recipe_window::compound_recipe_window::CompoundRecipeWindow;
 use crate::app::recipe_window::resource_sink::ResourceSink;
 use crate::app::recipe_window::resources_sources::ResourceSource;
 use crate::app::recipe_window::simple_recipe_window::SimpleRecipeWindow;
-use crate::utils::{id_init, Io};
+use crate::utils::{get_version, id_init, Io};
 use commons::CommonsManager;
 use eframe::Frame;
 use error::ShowError;
@@ -88,8 +90,8 @@ impl FactoryManagementApp {
                 ui.menu_button("File", |ui| {
                     #[cfg(not(target_arch = "wasm32"))]
                     if ui.button("Save").clicked() {
-                        let file_write = self.select_file_out();
-                        if let Some(file_write) = file_write {
+                        let file_write = self.file_select_out(None);
+                        if let Some(file_write) = file_write.0 {
                             self.save(&file_write);
                         }
                     }
@@ -118,23 +120,23 @@ impl FactoryManagementApp {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn select_file_out(&mut self) -> Option<File> {
+    fn file_select_out(&mut self, path: Option<String>) -> (Option<File>, Option<PathBuf>) {
         let file = FileDialog::new()
             .add_filter("FactoryManagementUtils file", &["fmu"])
-            .set_directory("/")
+            .set_directory(path.unwrap_or_else(|| "/".to_string()))
             .save_file()
             .unwrap();
 
-        let file_write = File::create(file);
+        let file_write = File::create(file.clone());
 
         let file_write = match file_write {
             Ok(f) => f,
             Err(e) => {
                 self.commons.add_error(ShowError::new(e.to_string()));
-                return None;
+                return (None, None);
             }
         };
-        Some(file_write)
+        (Some(file_write), Some(file))
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -471,6 +473,34 @@ impl FactoryManagementApp {
                     info!("Calculate button pressed");
                     self.current_graph.calculate();
                 }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if ui.button("Save Definition").clicked() {
+                        info!("Definition saving");
+                        let def = self.get_def();
+                        let file = self.file_select_out(Some(format!("test_data/{}", "a")));
+                        if let (Some(file), Some(path)) = (file.0, file.1) {
+                            self.save(&file);
+                            let base_name = path
+                                .to_str()
+                                .expect("couldn't get path")
+                                .strip_suffix(".fmu")
+                                .expect("Couldn't strip");
+                            let def_full_file_name = format!("{base_name}-def.json");
+                            let file =
+                                File::create(def_full_file_name).expect("Couldn't open file");
+
+                            let r = def.serialize(&mut serde_json::Serializer::new(file));
+
+                            if let Err(e) = r {
+                                self.commons.add_error(ShowError {
+                                    error: e.to_string(),
+                                    context: "The save failed for the following reason".to_string(),
+                                })
+                            }
+                        }
+                    }
+                }
             });
         }
     }
@@ -564,7 +594,111 @@ impl FactoryManagementApp {
             true
         }
     }
+
+    #[cfg(any(debug_assertions, test))]
+    fn get_def(&self) -> Definition {
+        let version = get_version();
+        let mut def = Definition {
+            version,
+            inputs: vec![],
+            outputs: vec![],
+        };
+        for source in self.current_graph.sources.iter() {
+            let total = source.output.total_out();
+            def.inputs.push(Total {
+                name: total.resource.name.to_string(),
+                amount: total.amount,
+                rate: total.rate,
+            })
+        }
+        for sink in self.current_graph.sinks.iter() {
+            if let Some(sink) = sink.sink.as_ref() {
+                let total = sink.total_in();
+                def.outputs.push(Total {
+                    name: total.resource.name.to_string(),
+                    amount: total.amount,
+                    rate: total.rate,
+                })
+            }
+        }
+        def
+    }
+}
+
+#[cfg(any(debug_assertions, test))]
+pub mod full_app_definition {
+    use crate::app::resources::RatePer;
+    use serde::Deserialize;
+    use std::fs::File;
+
+    #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
+    pub(crate) struct Total {
+        pub(crate) name: String,
+        pub(crate) amount: f32,
+        pub(crate) rate: RatePer,
+    }
+
+    #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
+    pub(crate) struct Definition {
+        pub(crate) version: String,
+        pub(crate) inputs: Vec<Total>,
+        pub(crate) outputs: Vec<Total>,
+    }
+
+    pub(crate) fn get_def(file_name: &str) -> Definition {
+        let base_name = file_name.strip_suffix(".fmu").expect("Couldn't strip");
+        let def_full_file_name = format!("{base_name}-def.json");
+        let file = File::open(def_full_file_name).expect("Couldn't open file");
+        let mut deserializer = serde_json::Deserializer::from_reader(file);
+        Definition::deserialize(&mut deserializer).expect("Couldn't deserialize")
+    }
 }
 
 #[cfg(test)]
-pub mod tests {}
+pub mod tests {
+
+    use crate::utils::test_helper::list_files;
+
+    use crate::app::full_app_definition::get_def;
+    use std::fs::File;
+    use std::path::{Path, PathBuf};
+
+    use crate::utils::id_init;
+    use crate::FactoryManagementApp;
+
+    impl FactoryManagementApp {
+        fn test_new() -> Self {
+            id_init();
+            Default::default()
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_serialization_consistency() {
+        let files = get_serialized_fmu_files();
+
+        for file in files {
+            let def = get_def(file.as_path().to_str().expect("couldn't get path"));
+            let mut app = FactoryManagementApp::test_new();
+            let file = File::open(file).expect("couldn't open serialized file");
+            app.load(file);
+            app.update_flows();
+            app.current_graph.calculate();
+            let def_app = app.get_def();
+            assert_eq!(def, def_app, "The definitions aren't matching");
+        }
+    }
+
+    pub fn get_serialized_fmu_files() -> Vec<PathBuf> {
+        let mut files = vec![];
+        list_files(Path::new("test_data"), &mut files, &mut |file| -> bool {
+            if let Some(s) = file.file_name().to_str() {
+                return s.ends_with(".fmu");
+            }
+            false
+        })
+        .expect("Couldn't list files");
+        files
+    }
+}

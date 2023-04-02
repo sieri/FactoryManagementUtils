@@ -329,7 +329,7 @@ pub mod tests {
     //-------------------Tests-------------------
 
     #[test]
-    #[ignore = "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"] //TODO: FIX
+    #[should_panic] //TODO: FIX  "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"
     fn test_tooltip_empty() {
         test_env::setup();
         let sample_window = setup_basic_recipe_window_empty();
@@ -338,7 +338,7 @@ pub mod tests {
                 "Test Window Empty",
                 "Inputs: |Outputs:            ",
                 "        |Test Window Empty: 1",
-                "        |               1.00/s",
+                "        |              1.00/s",
             ]
             .as_slice(),
         );
@@ -346,7 +346,7 @@ pub mod tests {
     }
 
     #[test]
-    #[ignore = "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"] //TODO: FIX
+    #[should_panic] //TODO: FIX "Not working https://github.com/sieri/FactoryManagementUtils/issues/1"
     fn test_tooltip_one_to_one() {
         test_env::setup();
         let sample_window = setup_simple_recipe_one_to_one();

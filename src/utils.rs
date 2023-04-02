@@ -1,5 +1,7 @@
 pub mod formatting;
 pub mod log;
+#[cfg(test)]
+pub mod test_helper;
 
 use num_traits::{Float, Num, NumCast, One, ToPrimitive};
 use std::fmt::Display;
@@ -57,6 +59,15 @@ pub fn gen_id(_name: String) -> egui::Id {
     let id_prefix_1 = ID_PREFIX_1.load(Ordering::SeqCst);
     let id_prefix_2 = ID_PREFIX_2.load(Ordering::SeqCst);
     egui::Id::new(&*format!("{id_prefix_1}{id_prefix_2}{id_suffix}"))
+}
+
+pub fn get_version() -> String {
+    use pkg_version::*;
+    const MAJOR: u32 = pkg_version_major!();
+    const MINOR: u32 = pkg_version_minor!();
+    const PATCH: u32 = pkg_version_patch!();
+
+    format!("{MAJOR}.{MINOR}.{PATCH}")
 }
 
 #[cfg(test)]
